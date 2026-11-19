@@ -10,6 +10,8 @@ git push origin master
 git push origin v0.1.0
 ```
 
+You can also create a GitHub Release for `v0.1.0` in the GitHub UI. If the tag does not exist yet, GitHub creates it when you publish the release. Select the commit on `master` containing the matching chart version. The workflow uploads its build assets to that release when it already exists; otherwise it creates the release. Re-running the publish job replaces assets with the same names.
+
 The workflow runs Go tests, govulncheck, and Helm lint, cross-builds Linux, macOS, and Windows binaries for amd64 and arm64, creates archives, and publishes a GitHub Release. The release assets include the packaged Helm chart (`maxio-0.1.0.tgz`), the binary archives, and Docker image archives for Linux amd64 and arm64 (`maxio-0.1.0-linux-<arch>-docker.tar.gz`). The workflow also pushes the multi-architecture image as `ghcr.io/core-laboratories/maxio:0.1.0` and the Helm chart as `oci://ghcr.io/core-laboratories/charts/maxio` version `0.1.0`. The source chart keeps `image.tag` empty so its `appVersion` selects the matching image. No chart package, checksum file, or repository index is committed.
 
 Pull the image with `docker pull ghcr.io/core-laboratories/maxio:0.1.0`, or load a downloaded release archive with `gzip -dc maxio-0.1.0-linux-amd64-docker.tar.gz | docker load` (use the archive for your CPU architecture).
