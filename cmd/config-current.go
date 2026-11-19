@@ -1,19 +1,9 @@
-// Copyright (c) 2015-2021 MinIO, Inc.
-//
-// This file is part of MinIO Object Storage stack
-//
-// This program is free software: you can redistribute it and/or modify
-// it under the terms of the GNU Affero General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-//
+// Copyright (c) 2015-2021 MinIO, Inc.; 2026 MaxIO
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // This program is distributed in the hope that it will be useful
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU Affero General Public License for more details.
-//
-// You should have received a copy of the GNU Affero General Public License
-// along with this program.  If not, see <http://www.gnu.org/licenses/>.
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+// See the GNU Affero General Public License for more details.
 
 package cmd
 
@@ -25,33 +15,33 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/minio/minio/internal/config/browser"
+	"github.com/core-laboratories/maxio/internal/config/browser"
 
 	"github.com/minio/madmin-go/v3"
-	"github.com/minio/minio/internal/config"
-	"github.com/minio/minio/internal/config/api"
-	"github.com/minio/minio/internal/config/batch"
-	"github.com/minio/minio/internal/config/callhome"
-	"github.com/minio/minio/internal/config/compress"
-	"github.com/minio/minio/internal/config/dns"
-	"github.com/minio/minio/internal/config/drive"
-	"github.com/minio/minio/internal/config/etcd"
-	"github.com/minio/minio/internal/config/heal"
-	xldap "github.com/minio/minio/internal/config/identity/ldap"
-	"github.com/minio/minio/internal/config/identity/openid"
-	idplugin "github.com/minio/minio/internal/config/identity/plugin"
-	xtls "github.com/minio/minio/internal/config/identity/tls"
-	"github.com/minio/minio/internal/config/ilm"
-	"github.com/minio/minio/internal/config/lambda"
-	"github.com/minio/minio/internal/config/notify"
-	"github.com/minio/minio/internal/config/policy/opa"
-	polplugin "github.com/minio/minio/internal/config/policy/plugin"
-	"github.com/minio/minio/internal/config/scanner"
-	"github.com/minio/minio/internal/config/storageclass"
-	"github.com/minio/minio/internal/config/subnet"
-	"github.com/minio/minio/internal/crypto"
-	xhttp "github.com/minio/minio/internal/http"
-	"github.com/minio/minio/internal/logger"
+	"github.com/core-laboratories/maxio/internal/config"
+	"github.com/core-laboratories/maxio/internal/config/api"
+	"github.com/core-laboratories/maxio/internal/config/batch"
+	"github.com/core-laboratories/maxio/internal/config/callhome"
+	"github.com/core-laboratories/maxio/internal/config/compress"
+	"github.com/core-laboratories/maxio/internal/config/dns"
+	"github.com/core-laboratories/maxio/internal/config/drive"
+	"github.com/core-laboratories/maxio/internal/config/etcd"
+	"github.com/core-laboratories/maxio/internal/config/heal"
+	xldap "github.com/core-laboratories/maxio/internal/config/identity/ldap"
+	"github.com/core-laboratories/maxio/internal/config/identity/openid"
+	idplugin "github.com/core-laboratories/maxio/internal/config/identity/plugin"
+	xtls "github.com/core-laboratories/maxio/internal/config/identity/tls"
+	"github.com/core-laboratories/maxio/internal/config/ilm"
+	"github.com/core-laboratories/maxio/internal/config/lambda"
+	"github.com/core-laboratories/maxio/internal/config/notify"
+	"github.com/core-laboratories/maxio/internal/config/policy/opa"
+	polplugin "github.com/core-laboratories/maxio/internal/config/policy/plugin"
+	"github.com/core-laboratories/maxio/internal/config/scanner"
+	"github.com/core-laboratories/maxio/internal/config/storageclass"
+	"github.com/core-laboratories/maxio/internal/config/subnet"
+	"github.com/core-laboratories/maxio/internal/crypto"
+	xhttp "github.com/core-laboratories/maxio/internal/http"
+	"github.com/core-laboratories/maxio/internal/logger"
 	"github.com/minio/pkg/v3/env"
 )
 

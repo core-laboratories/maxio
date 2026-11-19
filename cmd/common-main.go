@@ -1,19 +1,9 @@
-// Copyright (c) 2015-2021 MinIO, Inc.
-//
-// This file is part of MinIO Object Storage stack
-//
-// This program is free software: you can redistribute it and/or modify
-// it under the terms of the GNU Affero General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-//
+// Copyright (c) 2015-2021 MinIO, Inc.; 2026 MaxIO
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // This program is distributed in the hope that it will be useful
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU Affero General Public License for more details.
-//
-// You should have received a copy of the GNU Affero General Public License
-// along with this program.  If not, see <http://www.gnu.org/licenses/>.
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+// See the GNU Affero General Public License for more details.
 
 package cmd
 
@@ -37,6 +27,11 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/core-laboratories/maxio/internal/auth"
+	"github.com/core-laboratories/maxio/internal/color"
+	"github.com/core-laboratories/maxio/internal/config"
+	"github.com/core-laboratories/maxio/internal/kms"
+	"github.com/core-laboratories/maxio/internal/logger"
 	"github.com/dustin/go-humanize"
 	fcolor "github.com/fatih/color"
 	"github.com/go-openapi/loads"
@@ -51,11 +46,6 @@ import (
 	"github.com/minio/madmin-go/v3"
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/set"
-	"github.com/minio/minio/internal/auth"
-	"github.com/minio/minio/internal/color"
-	"github.com/minio/minio/internal/config"
-	"github.com/minio/minio/internal/kms"
-	"github.com/minio/minio/internal/logger"
 	"github.com/minio/pkg/v3/certs"
 	"github.com/minio/pkg/v3/console"
 	"github.com/minio/pkg/v3/env"
@@ -699,6 +689,7 @@ func loadEnvVarsFromFiles() {
 			os.Setenv(ekv.Key, ekv.Value)
 		}
 	}
+	applyMaxIOEnvAliases()
 }
 
 func serverHandleEarlyEnvVars() {
@@ -806,10 +797,9 @@ func serverHandleEnvVars() {
 		updateDomainIPs(domainIPs)
 	}
 
-	// In place update is true by default if the MINIO_UPDATE is not set
-	// or is not set to 'off', if MINIO_UPDATE is set to 'off' then
-	// in-place update is off.
-	globalInplaceUpdateDisabled = strings.EqualFold(env.Get(config.EnvUpdate, config.EnableOn), config.EnableOff)
+	// The inherited updater targets the upstream binary feed. Disable it until
+	// MaxIO has a signed, compatible in-place update channel.
+	globalInplaceUpdateDisabled = true
 
 	// Check if the supported credential env vars,
 	// "MINIO_ROOT_USER" and "MINIO_ROOT_PASSWORD" are provided

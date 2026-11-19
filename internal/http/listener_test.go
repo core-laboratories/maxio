@@ -1,19 +1,9 @@
-// Copyright (c) 2015-2021 MinIO, Inc.
-//
-// This file is part of MinIO Object Storage stack
-//
-// This program is free software: you can redistribute it and/or modify
-// it under the terms of the GNU Affero General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-//
+// Copyright (c) 2015-2021 MinIO, Inc.; 2026 MaxIO
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // This program is distributed in the hope that it will be useful
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU Affero General Public License for more details.
-//
-// You should have received a copy of the GNU Affero General Public License
-// along with this program.  If not, see <http://www.gnu.org/licenses/>.
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+// See the GNU Affero General Public License for more details.
 
 package http
 
@@ -98,35 +88,38 @@ func getNextPort() string {
 }
 
 func getNonLoopBackIP(t *testing.T) string {
-	localIP4 := set.NewStringSet()
-	addrs, err := net.InterfaceAddrs()
+	ifaces, err := net.Interfaces()
 	if err != nil {
-		t.Fatalf("%s.  Unable to get IP addresses of this host.", err)
+		t.Fatalf("Unable to list network interfaces: %v", err)
 	}
-
-	for _, addr := range addrs {
-		var ip net.IP
-		switch v := addr.(type) {
-		case *net.IPNet:
-			ip = v.IP
-		case *net.IPAddr:
-			ip = v.IP
+	for _, iface := range ifaces {
+		if iface.Flags&net.FlagUp == 0 || iface.Flags&(net.FlagLoopback|net.FlagPointToPoint) != 0 {
+			continue
 		}
-
-		if ip.To4() != nil {
-			localIP4.Add(ip.String())
+		addrs, err := iface.Addrs()
+		if err != nil {
+			continue
+		}
+		for _, addr := range addrs {
+			ipNet, ok := addr.(*net.IPNet)
+			if !ok || ipNet.IP.To4() == nil {
+				continue
+			}
+			ip := ipNet.IP.String()
+			listener, err := net.Listen("tcp4", net.JoinHostPort(ip, "0"))
+			if err != nil {
+				continue
+			}
+			conn, err := net.DialTimeout("tcp4", listener.Addr().String(), 500*time.Millisecond)
+			listener.Close()
+			if err == nil {
+				conn.Close()
+				return ip
+			}
 		}
 	}
-
-	// Filter ipList by IPs those do not start with '127.'.
-	nonLoopBackIPs := localIP4.FuncMatch(func(ip string, matchString string) bool {
-		return !strings.HasPrefix(ip, "127.")
-	}, "")
-	if len(nonLoopBackIPs) == 0 {
-		t.Fatalf("No non-loop back IP address found for this host")
-	}
-	nonLoopBackIP := nonLoopBackIPs.ToSlice()[0]
-	return nonLoopBackIP
+	t.Skip("No reachable non-loopback IPv4 address found for this host")
+	return ""
 }
 
 func TestNewHTTPListener(t *testing.T) {
@@ -209,7 +202,7 @@ nextTest:
 		}
 
 		for _, serverAddr := range listener.Addrs() {
-			conn, err := net.Dial("tcp", serverAddr.String())
+			conn, err := net.DialTimeout("tcp", serverAddr.String(), 2*time.Second)
 			if err != nil {
 				t.Fatalf("Test %d: error: expected = <nil>, got = %v", i+1, err)
 			}

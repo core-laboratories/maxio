@@ -1,19 +1,9 @@
-// Copyright (c) 2015-2022 MinIO, Inc.
-//
-// This file is part of MinIO Object Storage stack
-//
-// This program is free software: you can redistribute it and/or modify
-// it under the terms of the GNU Affero General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-//
+// Copyright (c) 2015-2021 MinIO, Inc.; 2026 MaxIO
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // This program is distributed in the hope that it will be useful
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU Affero General Public License for more details.
-//
-// You should have received a copy of the GNU Affero General Public License
-// along with this program.  If not, see <http://www.gnu.org/licenses/>.
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+// See the GNU Affero General Public License for more details.
 
 package cmd
 
@@ -51,14 +41,14 @@ import (
 	"github.com/minio/madmin-go/v3/estream"
 	"github.com/minio/madmin-go/v3/logger/log"
 	"github.com/minio/minio-go/v7/pkg/set"
-	"github.com/minio/minio/internal/auth"
-	"github.com/minio/minio/internal/dsync"
-	"github.com/minio/minio/internal/grid"
-	"github.com/minio/minio/internal/handlers"
-	xhttp "github.com/minio/minio/internal/http"
-	xioutil "github.com/minio/minio/internal/ioutil"
-	"github.com/minio/minio/internal/kms"
-	"github.com/minio/minio/internal/logger"
+	"github.com/core-laboratories/maxio/internal/auth"
+	"github.com/core-laboratories/maxio/internal/dsync"
+	"github.com/core-laboratories/maxio/internal/grid"
+	"github.com/core-laboratories/maxio/internal/handlers"
+	xhttp "github.com/core-laboratories/maxio/internal/http"
+	xioutil "github.com/core-laboratories/maxio/internal/ioutil"
+	"github.com/core-laboratories/maxio/internal/kms"
+	"github.com/core-laboratories/maxio/internal/logger"
 	"github.com/minio/mux"
 	xnet "github.com/minio/pkg/v3/net"
 	"github.com/minio/pkg/v3/policy"

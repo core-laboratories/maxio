@@ -1,0 +1,66 @@
+{{- if and (.Values.networkPolicy.enabled) (eq .Values.networkPolicy.flavor "kubernetes") }}
+kind: NetworkPolicy
+apiVersion: {{ template "maxio.networkPolicy.apiVersion" . }}
+metadata:
+  name: {{ template "maxio.fullname" . }}
+  labels:
+    app: {{ template "maxio.name" . }}
+    chart: {{ template "maxio.chart" . }}
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
+spec:
+  podSelector:
+    matchLabels:
+      app: {{ template "maxio.name" . }}
+      release: {{ .Release.Name }}
+  ingress:
+    - ports:
+        - port: {{ .Values.maxioAPIPort }}
+          protocol: TCP
+        - port: {{ .Values.maxioConsolePort }}
+          protocol: TCP
+      {{- if not .Values.networkPolicy.allowExternal }}
+      from:
+        - podSelector:
+            matchLabels:
+              {{ template "maxio.name" . }}-client: "true"
+      {{- end }}
+  {{- if .Values.networkPolicy.egress.enabled }}
+  egress:
+    - ports:
+        {{ .Values.networkPolicy.egress.ports | toJson }}
+      {{- with .Values.networkPolicy.egress.to }}
+      to:
+        {{- toYaml . | nindent 12 }}
+      {{- end }}
+  {{- end }}
+---
+kind: NetworkPolicy
+apiVersion: {{ template "maxio.networkPolicy.apiVersion" . }}
+metadata:
+  name: {{ template "maxio.fullname" . }}-post-job
+  labels:
+    app: {{ template "maxio.name" . }}-post-job
+    chart: {{ template "maxio.chart" . }}
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
+spec:
+  podSelector:
+    matchLabels:
+      app: {{ template "maxio.name" . }}-job
+      release: {{ .Release.Name }}
+  egress:
+    - ports:
+        - port: {{ .Values.maxioAPIPort }}
+          protocol: TCP
+        - port: {{ .Values.maxioConsolePort }}
+          protocol: TCP
+    {{- if .Values.networkPolicy.egress.enabled }}
+    - ports:
+        {{ .Values.networkPolicy.egress.ports | toJson }}
+      {{- with .Values.networkPolicy.egress.to }}
+      to:
+        {{- toYaml . | nindent 12 }}
+      {{- end }}
+    {{- end }}
+{{- end }}

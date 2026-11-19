@@ -1,19 +1,9 @@
-// Copyright (c) 2015-2022 MinIO, Inc.
-//
-// This file is part of MinIO Object Storage stack
-//
-// This program is free software: you can redistribute it and/or modify
-// it under the terms of the GNU Affero General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-//
+// Copyright (c) 2015-2021 MinIO, Inc.; 2026 MaxIO
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // This program is distributed in the hope that it will be useful
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU Affero General Public License for more details.
-//
-// You should have received a copy of the GNU Affero General Public License
-// along with this program.  If not, see <http://www.gnu.org/licenses/>.
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+// See the GNU Affero General Public License for more details.
 
 package cmd
 
@@ -48,20 +38,20 @@ import (
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/set"
 	"github.com/minio/minio-go/v7/pkg/tags"
-	"github.com/minio/minio/internal/auth"
-	sse "github.com/minio/minio/internal/bucket/encryption"
-	objectlock "github.com/minio/minio/internal/bucket/object/lock"
-	"github.com/minio/minio/internal/bucket/replication"
-	"github.com/minio/minio/internal/config/dns"
-	"github.com/minio/minio/internal/crypto"
-	"github.com/minio/minio/internal/etag"
-	"github.com/minio/minio/internal/event"
-	"github.com/minio/minio/internal/handlers"
-	"github.com/minio/minio/internal/hash"
-	xhttp "github.com/minio/minio/internal/http"
-	"github.com/minio/minio/internal/ioutil"
-	"github.com/minio/minio/internal/kms"
-	"github.com/minio/minio/internal/logger"
+	"github.com/core-laboratories/maxio/internal/auth"
+	sse "github.com/core-laboratories/maxio/internal/bucket/encryption"
+	objectlock "github.com/core-laboratories/maxio/internal/bucket/object/lock"
+	"github.com/core-laboratories/maxio/internal/bucket/replication"
+	"github.com/core-laboratories/maxio/internal/config/dns"
+	"github.com/core-laboratories/maxio/internal/crypto"
+	"github.com/core-laboratories/maxio/internal/etag"
+	"github.com/core-laboratories/maxio/internal/event"
+	"github.com/core-laboratories/maxio/internal/handlers"
+	"github.com/core-laboratories/maxio/internal/hash"
+	xhttp "github.com/core-laboratories/maxio/internal/http"
+	"github.com/core-laboratories/maxio/internal/ioutil"
+	"github.com/core-laboratories/maxio/internal/kms"
+	"github.com/core-laboratories/maxio/internal/logger"
 	"github.com/minio/pkg/v3/policy"
 	"github.com/minio/pkg/v3/sync/errgroup"
 )

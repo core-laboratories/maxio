@@ -1,19 +1,9 @@
-// Copyright (c) 2015-2022 MinIO, Inc.
-//
-// This file is part of MinIO Object Storage stack
-//
-// This program is free software: you can redistribute it and/or modify
-// it under the terms of the GNU Affero General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-//
+// Copyright (c) 2015-2021 MinIO, Inc.; 2026 MaxIO
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // This program is distributed in the hope that it will be useful
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU Affero General Public License for more details.
-//
-// You should have received a copy of the GNU Affero General Public License
-// along with this program.  If not, see <http://www.gnu.org/licenses/>.
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+// See the GNU Affero General Public License for more details.
 
 package cmd
 
@@ -25,10 +15,10 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/minio/minio/internal/crypto"
-	"github.com/minio/minio/internal/event"
-	xhttp "github.com/minio/minio/internal/http"
-	"github.com/minio/minio/internal/pubsub"
+	"github.com/core-laboratories/maxio/internal/crypto"
+	"github.com/core-laboratories/maxio/internal/event"
+	xhttp "github.com/core-laboratories/maxio/internal/http"
+	"github.com/core-laboratories/maxio/internal/pubsub"
 	"github.com/minio/pkg/v3/policy"
 )
 
@@ -152,13 +142,15 @@ func (evnot *EventNotifier) Send(args eventArgs) {
 }
 
 type eventArgs struct {
-	EventName    event.Name
-	BucketName   string
-	Object       ObjectInfo
-	ReqParams    map[string]string
-	RespElements map[string]string
-	Host         string
-	UserAgent    string
+	EventName       event.Name
+	BucketName      string
+	Object          ObjectInfo
+	ReqParams       map[string]string
+	RespElements    map[string]string
+	Host            string
+	UserAgent       string
+	IPFSMetaControl bool
+	IPFSTagControl  bool
 }
 
 // ToEvent - converts to notification event.
@@ -245,8 +237,8 @@ func sendEvent(args eventArgs) {
 	if _, ok := args.ReqParams[xhttp.MinIOSourceReplicationRequest]; ok {
 		return
 	}
-
 	args.Object.Size, _ = args.Object.GetActualSize()
+	ipfsEvent(args)
 
 	// remove sensitive encryption entries in metadata.
 	crypto.RemoveSensitiveEntries(args.Object.UserDefined)

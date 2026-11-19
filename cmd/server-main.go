@@ -1,19 +1,9 @@
-// Copyright (c) 2015-2024 MinIO, Inc.
-//
-// This file is part of MinIO Object Storage stack
-//
-// This program is free software: you can redistribute it and/or modify
-// it under the terms of the GNU Affero General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-//
+// Copyright (c) 2015-2021 MinIO, Inc.; 2026 MaxIO
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // This program is distributed in the hope that it will be useful
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU Affero General Public License for more details.
-//
-// You should have received a copy of the GNU Affero General Public License
-// along with this program.  If not, see <http://www.gnu.org/licenses/>.
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+// See the GNU Affero General Public License for more details.
 
 package cmd
 
@@ -36,6 +26,16 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/core-laboratories/maxio/internal/auth"
+	"github.com/core-laboratories/maxio/internal/bucket/bandwidth"
+	"github.com/core-laboratories/maxio/internal/color"
+	"github.com/core-laboratories/maxio/internal/config"
+	"github.com/core-laboratories/maxio/internal/config/api"
+	"github.com/core-laboratories/maxio/internal/handlers"
+	"github.com/core-laboratories/maxio/internal/hash/sha256"
+	xhttp "github.com/core-laboratories/maxio/internal/http"
+	xioutil "github.com/core-laboratories/maxio/internal/ioutil"
+	"github.com/core-laboratories/maxio/internal/logger"
 	"github.com/coreos/go-systemd/v22/daemon"
 	"github.com/dustin/go-humanize"
 	"github.com/minio/cli"
@@ -43,16 +43,6 @@ import (
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
 	"github.com/minio/minio-go/v7/pkg/set"
-	"github.com/minio/minio/internal/auth"
-	"github.com/minio/minio/internal/bucket/bandwidth"
-	"github.com/minio/minio/internal/color"
-	"github.com/minio/minio/internal/config"
-	"github.com/minio/minio/internal/config/api"
-	"github.com/minio/minio/internal/handlers"
-	"github.com/minio/minio/internal/hash/sha256"
-	xhttp "github.com/minio/minio/internal/http"
-	xioutil "github.com/minio/minio/internal/ioutil"
-	"github.com/minio/minio/internal/logger"
 	"github.com/minio/pkg/v3/certs"
 	"github.com/minio/pkg/v3/env"
 	"gopkg.in/yaml.v2"
@@ -220,20 +210,20 @@ FLAGS:
   {{range .VisibleFlags}}{{.}}
   {{end}}{{end}}
 EXAMPLES:
-  1. Start MinIO server on "/home/shared" directory.
+  1. Start MaxIO server on "/home/shared" directory.
      {{.Prompt}} {{.HelpName}} /home/shared
 
   2. Start single node server with 64 local drives "/mnt/data1" to "/mnt/data64".
      {{.Prompt}} {{.HelpName}} /mnt/data{1...64}
 
-  3. Start distributed MinIO server on an 32 node setup with 32 drives each, run following command on all the nodes
+  3. Start distributed MaxIO server on an 32 node setup with 32 drives each, run following command on all the nodes
      {{.Prompt}} {{.HelpName}} http://node{1...32}.example.com/mnt/export{1...32}
 
-  4. Start distributed MinIO server in an expanded setup, run the following command on all the nodes
+  4. Start distributed MaxIO server in an expanded setup, run the following command on all the nodes
      {{.Prompt}} {{.HelpName}} http://node{1...16}.example.com/mnt/export{1...32} \
             http://node{17...64}.example.com/mnt/export{1...64}
 
-  5. Start distributed MinIO server, with FTP and SFTP servers on all interfaces via port 8021, 8022 respectively
+  5. Start distributed MaxIO server, with FTP and SFTP servers on all interfaces via port 8021, 8022 respectively
      {{.Prompt}} {{.HelpName}} http://node{1...4}.example.com/mnt/export{1...4} \
            --ftp="address=:8021" --ftp="passive-port-range=30000-40000" \
            --sftp="address=:8022" --sftp="ssh-private-key=${HOME}/.ssh/id_rsa"
@@ -597,7 +587,7 @@ func initServerConfig(ctx context.Context, newObject ObjectLayer) error {
 
 		// These messages only meant primarily for distributed setup, so only log during distributed setup.
 		if globalIsDistErasure {
-			logger.Info("Waiting for all MinIO sub-systems to be initialize...")
+			logger.Info("Waiting for all MaxIO sub-systems to be initialize...")
 		}
 
 		// Upon success migrating the config, initialize all sub-systems
@@ -607,13 +597,13 @@ func initServerConfig(ctx context.Context, newObject ObjectLayer) error {
 			// All successful return.
 			if globalIsDistErasure {
 				// These messages only meant primarily for distributed setup, so only log during distributed setup.
-				logger.Info("All MinIO sub-systems initialized successfully in %s", time.Since(t1))
+				logger.Info("All MaxIO sub-systems initialized successfully in %s", time.Since(t1))
 			}
 			return nil
 		}
 
 		if configRetriableErrors(err) {
-			logger.Info("Waiting for all MinIO sub-systems to be initialized.. possible cause (%v)", err)
+			logger.Info("Waiting for all MaxIO sub-systems to be initialized.. possible cause (%v)", err)
 			time.Sleep(time.Duration(r.Float64() * float64(5*time.Second)))
 			continue
 		}
@@ -678,7 +668,7 @@ func setGlobalInternodeInterface(interfaceName string) {
 	})
 }
 
-// Return the list of address that MinIO server needs to listen on:
+// Return the list of address that MaxIO server needs to listen on:
 //   - Returning 127.0.0.1 is necessary so Console will be able to send
 //     requests to the local S3 API.
 //   - The returned List needs to be deduplicated as well.
@@ -995,7 +985,7 @@ func serverMain(ctx *cli.Context) {
 		}
 	})
 	if globalActiveCred.Equal(auth.DefaultCredentials) {
-		msg := fmt.Sprintf("Detected default credentials '%s', we recommend that you change these values with 'MINIO_ROOT_USER' and 'MINIO_ROOT_PASSWORD' environment variables",
+		msg := fmt.Sprintf("Detected default credentials '%s', we recommend that you change these values with 'MAXIO_ROOT_USER' and 'MAXIO_ROOT_PASSWORD' environment variables",
 			globalActiveCred)
 		warnings = append(warnings, color.YellowBold(msg))
 	}

@@ -15,3 +15,11 @@ docs/debugging/healing-bin/healing-bin
 docs/debugging/inspect/inspect
 docs/debugging/pprofgoparser/pprofgoparser
 docs/debugging/reorder-disks/reorder-disks
+
+*.lock
+*.sum
+*.tmp
+*.temp
+*.webp
+helm-releases/
+index.yaml

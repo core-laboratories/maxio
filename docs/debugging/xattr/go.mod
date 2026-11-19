@@ -1,4 +1,4 @@
-module github.com/minio/minio/docs/debugging/xattr
+module github.com/core-laboratories/maxio/docs/debugging/xattr
 
 go 1.21
 

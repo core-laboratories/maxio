@@ -1,19 +1,9 @@
-// Copyright (c) 2015-2021 MinIO, Inc.
-//
-// This file is part of MinIO Object Storage stack
-//
-// This program is free software: you can redistribute it and/or modify
-// it under the terms of the GNU Affero General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-//
+// Copyright (c) 2015-2021 MinIO, Inc.; 2026 MaxIO
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // This program is distributed in the hope that it will be useful
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU Affero General Public License for more details.
-//
-// You should have received a copy of the GNU Affero General Public License
-// along with this program.  If not, see <http://www.gnu.org/licenses/>.
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+// See the GNU Affero General Public License for more details.
 
 package cmd
 
@@ -36,8 +26,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/klauspost/compress/zip"
 	"github.com/klauspost/compress/zstd"
-	"github.com/minio/minio/internal/bucket/lifecycle"
-	xhttp "github.com/minio/minio/internal/http"
+	"github.com/core-laboratories/maxio/internal/bucket/lifecycle"
+	xhttp "github.com/core-laboratories/maxio/internal/http"
 )
 
 func TestReadXLMetaNoData(t *testing.T) {
@@ -585,7 +575,7 @@ func Test_xlMetaV2Shallow_Load(t *testing.T) {
 	})
 	// Test compressed index consistency fix
 	t.Run("comp-index", func(t *testing.T) {
-		// This file has a compressed index, due to https://github.com/minio/minio/pull/20575
+		// This file has a compressed index, due to https://github.com/core-laboratories/maxio/pull/20575
 		// We ensure it is rewritten without an index.
 		// We compare this against the signature of the files stored without a version.
 		data, err := base64.StdEncoding.DecodeString(`WEwyIAEAAwDGAAACKgMCAcQml8QQAAAAAAAAAAAAAAAAAAAAANMYGu+UIK7akcQEofwXhAECCAjFAfyDpFR5cGUBpVYyT2Jq3gASoklExBAAAAAAAAAAAAAAAAAAAAAApEREaXLEEFTyKFqhkkXVoWn+8R1Lr2ymRWNBbGdvAaNFY00Io0VjTginRWNCU2l6ZdIAEAAAp0VjSW5kZXgBpkVjRGlzdNwAEAECAwQFBgcICQoLDA0ODxCoQ1N1bUFsZ28BqFBhcnROdW1zkgECqVBhcnRFVGFnc8CpUGFydFNpemVzktIAFtgq0gAGvb+qUGFydEFTaXplc5LSAFKb69IAGZg0p1BhcnRJZHiSxFqKm+4h9J7JCYCAgAFEABSPlBzH5g6z9gah3wOPnwLDlAGeD+os0xbjFd8O8w+TBoM8rz6bHO0KzQWtBu4GwgGSBocH6QPUSu8J5A/8gwSWtQPOtgL0euoMmAPEAKRTaXpl0gAdlemlTVRpbWXTGBrvlCCu2pGnTWV0YVN5c4K8WC1NaW5pby1JbnRlcm5hbC1hY3R1YWwtc2l6ZcQHNzA5MTIzMbxYLU1pbmlvLUludGVybmFsLWNvbXByZXNzaW9uxBVrbGF1c3Bvc3QvY29tcHJlc3MvczKnTWV0YVVzcoKsY29udGVudC10eXBlqHRleHQvY3N2pGV0YWfZIjEzYmYyMDU0NGVjN2VmY2YxNzhiYWRmNjc4NzNjODg2LTKhds5mYYMqzv8Vdtk=`)

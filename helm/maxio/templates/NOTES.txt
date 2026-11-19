@@ -1,0 +1,43 @@
+{{- if eq .Values.service.type "ClusterIP" "NodePort" }}
+MaxIO can be accessed via port {{ .Values.service.port }} on the following DNS name from within your cluster:
+{{ template "maxio.fullname" . }}.{{ .Release.Namespace }}.{{ .Values.clusterDomain }}
+
+To access MaxIO from localhost, run the below commands:
+
+  1. export POD_NAME=$(kubectl get pods --namespace {{ .Release.Namespace }} -l "release={{ .Release.Name }}" -o jsonpath="{.items[0].metadata.name}")
+
+  2. kubectl port-forward $POD_NAME 9000 --namespace {{ .Release.Namespace }}
+
+Read more about port forwarding here: http://kubernetes.io/docs/user-guide/kubectl/kubectl_port-forward/
+
+You can now access MaxIO server on http://localhost:9000. Follow the below steps to connect to MaxIO server with mc client:
+
+  1. Download the MaxIO mc client - https://github.com/core-laboratories/maxio/tree/master/docs/reference/maxio-mc.html#quickstart
+
+  2. export MC_HOST_{{ template "maxio.fullname" . }}_local=http://$(kubectl get secret --namespace {{ .Release.Namespace }} {{ template "maxio.secretName" . }} -o jsonpath="{.data.rootUser}" | base64 --decode):$(kubectl get secret --namespace {{ .Release.Namespace }} {{ template "maxio.secretName" . }} -o jsonpath="{.data.rootPassword}" | base64 --decode)@localhost:{{ .Values.service.port }}
+
+  3. mc ls {{ template "maxio.fullname" . }}_local
+
+{{- end }}
+{{- if eq .Values.service.type "LoadBalancer" }}
+MaxIO can be accessed via port {{ .Values.service.port }} on an external IP address. Get the service external IP address by:
+kubectl get svc --namespace {{ .Release.Namespace }} -l app={{ template "maxio.fullname" . }}
+
+Note that the public IP may take a couple of minutes to be available.
+
+You can now access MaxIO server on http://<External-IP>:9000. Follow the below steps to connect to MaxIO server with mc client:
+
+  1. Download the MaxIO mc client - https://github.com/core-laboratories/maxio/tree/master/docs/reference/maxio-mc.html#quickstart
+
+  2. export MC_HOST_{{ template "maxio.fullname" . }}_local=http://$(kubectl get secret {{ template "maxio.secretName" . }} --namespace {{ .Release.Namespace }} -o jsonpath="{.data.rootUser}" | base64 --decode):$(kubectl get secret {{ template "maxio.secretName" . }} -o jsonpath="{.data.rootPassword}" | base64 --decode)@<External-IP>:{{ .Values.service.port }}
+
+  3. mc ls {{ template "maxio.fullname" . }}
+
+Alternately, you can use your browser or the MaxIO SDK to access the server - https://github.com/core-laboratories/maxio/tree/master/docs/reference/maxio-server/maxio-server.html
+{{- end }}
+
+{{ if and (.Values.networkPolicy.enabled) (not .Values.networkPolicy.allowExternal) }}
+Note: Since NetworkPolicy is enabled, only pods with label
+{{ template "maxio.fullname" . }}-client=true"
+will be able to connect to this maxio cluster.
+{{- end }}

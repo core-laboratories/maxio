@@ -1,19 +1,9 @@
-// Copyright (c) 2015-2023 MinIO, Inc.
-//
-// This file is part of MinIO Object Storage stack
-//
-// This program is free software: you can redistribute it and/or modify
-// it under the terms of the GNU Affero General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-//
+// Copyright (c) 2015-2021 MinIO, Inc.; 2026 MaxIO
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // This program is distributed in the hope that it will be useful
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU Affero General Public License for more details.
-//
-// You should have received a copy of the GNU Affero General Public License
-// along with this program.  If not, see <http://www.gnu.org/licenses/>.
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+// See the GNU Affero General Public License for more details.
 
 package cmd
 
@@ -37,30 +27,30 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/core-laboratories/maxio/internal/amztime"
+	"github.com/core-laboratories/maxio/internal/auth"
+	sse "github.com/core-laboratories/maxio/internal/bucket/encryption"
+	"github.com/core-laboratories/maxio/internal/bucket/lifecycle"
+	objectlock "github.com/core-laboratories/maxio/internal/bucket/object/lock"
+	"github.com/core-laboratories/maxio/internal/bucket/replication"
+	"github.com/core-laboratories/maxio/internal/config/dns"
+	"github.com/core-laboratories/maxio/internal/config/storageclass"
+	"github.com/core-laboratories/maxio/internal/crypto"
+	"github.com/core-laboratories/maxio/internal/etag"
+	"github.com/core-laboratories/maxio/internal/event"
+	"github.com/core-laboratories/maxio/internal/handlers"
+	"github.com/core-laboratories/maxio/internal/hash"
+	xhttp "github.com/core-laboratories/maxio/internal/http"
+	xioutil "github.com/core-laboratories/maxio/internal/ioutil"
+	"github.com/core-laboratories/maxio/internal/kms"
+	"github.com/core-laboratories/maxio/internal/logger"
+	"github.com/core-laboratories/maxio/internal/s3select"
 	"github.com/google/uuid"
 	"github.com/klauspost/compress/gzhttp"
 	miniogo "github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
 	"github.com/minio/minio-go/v7/pkg/encrypt"
 	"github.com/minio/minio-go/v7/pkg/tags"
-	"github.com/minio/minio/internal/amztime"
-	"github.com/minio/minio/internal/auth"
-	sse "github.com/minio/minio/internal/bucket/encryption"
-	"github.com/minio/minio/internal/bucket/lifecycle"
-	objectlock "github.com/minio/minio/internal/bucket/object/lock"
-	"github.com/minio/minio/internal/bucket/replication"
-	"github.com/minio/minio/internal/config/dns"
-	"github.com/minio/minio/internal/config/storageclass"
-	"github.com/minio/minio/internal/crypto"
-	"github.com/minio/minio/internal/etag"
-	"github.com/minio/minio/internal/event"
-	"github.com/minio/minio/internal/handlers"
-	"github.com/minio/minio/internal/hash"
-	xhttp "github.com/minio/minio/internal/http"
-	xioutil "github.com/minio/minio/internal/ioutil"
-	"github.com/minio/minio/internal/kms"
-	"github.com/minio/minio/internal/logger"
-	"github.com/minio/minio/internal/s3select"
 	"github.com/minio/mux"
 	"github.com/minio/pkg/v3/policy"
 )
@@ -213,6 +203,7 @@ func (api objectAPIHandlers) SelectObjectContentHandler(w http.ResponseWriter, r
 
 	// filter object lock metadata if permission does not permit
 	objInfo.UserDefined = objectlock.FilterObjectLockMetadata(objInfo.UserDefined, getRetPerms != ErrNone, legalHoldPerms != ErrNone)
+	filterIPFSPrivateMetadata(&objInfo)
 
 	if _, err = DecryptObjectInfo(&objInfo, r); err != nil {
 		writeErrorResponse(ctx, w, toAPIError(ctx, err), r.URL)
@@ -501,6 +492,7 @@ func (api objectAPIHandlers) getObjectHandler(ctx context.Context, objectAPI Obj
 
 	// filter object lock metadata if permission does not permit
 	objInfo.UserDefined = objectlock.FilterObjectLockMetadata(objInfo.UserDefined, getRetPerms != ErrNone, legalHoldPerms != ErrNone)
+	filterIPFSPrivateMetadata(&objInfo)
 
 	// Set encryption response headers
 	if kind, isEncrypted := crypto.IsEncrypted(objInfo.UserDefined); isEncrypted {
@@ -912,6 +904,7 @@ func (api objectAPIHandlers) headObjectHandler(ctx context.Context, objectAPI Ob
 
 	// filter object lock metadata if permission does not permit
 	objInfo.UserDefined = objectlock.FilterObjectLockMetadata(objInfo.UserDefined, getRetPerms != ErrNone, legalHoldPerms != ErrNone)
+	filterIPFSPrivateMetadata(&objInfo)
 
 	if _, err = DecryptObjectInfo(&objInfo, r); err != nil {
 		writeErrorResponseHeadersOnly(w, toAPIError(ctx, err))
@@ -961,6 +954,7 @@ func (api objectAPIHandlers) headObjectHandler(ctx context.Context, objectAPI Ob
 	}
 
 	// Set any additional requested response headers.
+	ipfsStatusHeaders(ctx, r, w, objInfo)
 	setHeadGetRespHeaders(w, r.Form)
 
 	// Successful response.
@@ -1579,6 +1573,20 @@ func (api objectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 			srcInfo.UserDefined[ReservedMetadataPrefixLower+TaggingTimestamp] = UTCNow().Format(time.RFC3339Nano)
 		}
 	}
+	ipfsCopyMetadata := isDirectiveReplace(r.Header.Get(xhttp.AmzMetadataDirective))
+	ipfsCopyTags := isDirectiveReplace(r.Header.Get(xhttp.AmzTagDirective))
+	var ipfsMetadata map[string]string
+	var ipfsTags string
+	if ipfsCopyMetadata {
+		ipfsMetadata = srcInfo.UserDefined
+	}
+	if ipfsCopyTags {
+		ipfsTags = objTags
+	}
+	if code := validateIPFSControls(ctx, r, dstBucket, dstObject, ipfsMetadata, ipfsTags); code != ErrNone {
+		writeErrorResponse(ctx, w, errorCodes.ToAPIErr(code), r.URL)
+		return
+	}
 
 	srcInfo.UserDefined = filterReplicationStatusMetadata(srcInfo.UserDefined)
 	srcInfo.UserDefined = objectlock.FilterObjectLockMetadata(srcInfo.UserDefined, true, true)
@@ -1764,13 +1772,15 @@ func (api objectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 
 	// Notify object created event.
 	sendEvent(eventArgs{
-		EventName:    event.ObjectCreatedCopy,
-		BucketName:   dstBucket,
-		Object:       objInfo,
-		ReqParams:    extractReqParams(r),
-		RespElements: extractRespElements(w),
-		UserAgent:    r.UserAgent(),
-		Host:         handlers.GetSourceIP(r),
+		EventName:       event.ObjectCreatedCopy,
+		BucketName:      dstBucket,
+		Object:          objInfo,
+		IPFSMetaControl: ipfsCopyMetadata,
+		IPFSTagControl:  ipfsCopyTags,
+		ReqParams:       extractReqParams(r),
+		RespElements:    extractRespElements(w),
+		UserAgent:       r.UserAgent(),
+		Host:            handlers.GetSourceIP(r),
 	})
 
 	if !remoteCallRequired && !globalTierConfigMgr.Empty() {
@@ -1883,6 +1893,10 @@ func (api objectAPIHandlers) PutObjectHandler(w http.ResponseWriter, r *http.Req
 	// Check if put is allowed
 	if s3Err = isPutActionAllowed(ctx, rAuthType, bucket, object, r, policy.PutObjectAction); s3Err != ErrNone {
 		writeErrorResponse(ctx, w, errorCodes.ToAPIErr(s3Err), r.URL)
+		return
+	}
+	if code := validateIPFSControls(ctx, r, bucket, object, metadata, r.Header.Get(xhttp.AmzObjectTagging)); code != ErrNone {
+		writeErrorResponse(ctx, w, errorCodes.ToAPIErr(code), r.URL)
 		return
 	}
 
@@ -2155,13 +2169,15 @@ func (api objectAPIHandlers) PutObjectHandler(w http.ResponseWriter, r *http.Req
 
 	// Notify object created event.
 	evt := eventArgs{
-		EventName:    event.ObjectCreatedPut,
-		BucketName:   bucket,
-		Object:       objInfo,
-		ReqParams:    extractReqParams(r),
-		RespElements: extractRespElements(w),
-		UserAgent:    r.UserAgent(),
-		Host:         handlers.GetSourceIP(r),
+		EventName:       event.ObjectCreatedPut,
+		BucketName:      bucket,
+		Object:          objInfo,
+		IPFSMetaControl: true,
+		IPFSTagControl:  true,
+		ReqParams:       extractReqParams(r),
+		RespElements:    extractRespElements(w),
+		UserAgent:       r.UserAgent(),
+		Host:            handlers.GetSourceIP(r),
 	}
 	sendEvent(evt)
 	if objInfo.NumVersions > int(scannerExcessObjectVersions.Load()) {
@@ -3209,7 +3225,6 @@ func (api objectAPIHandlers) PutObjectTaggingHandler(w http.ResponseWriter, r *h
 		writeErrorResponse(ctx, w, errorCodes.ToAPIErr(s3Error), r.URL)
 		return
 	}
-
 	opts, err := getOpts(ctx, r, bucket, object)
 	if err != nil {
 		writeErrorResponse(ctx, w, toAPIError(ctx, err), r.URL)
@@ -3251,6 +3266,10 @@ func (api objectAPIHandlers) PutObjectTaggingHandler(w http.ResponseWriter, r *h
 		return
 	}
 	tagsStr := tags.String()
+	if code := validateIPFSControls(ctx, r, bucket, object, objInfo.UserDefined, tagsStr); code != ErrNone {
+		writeErrorResponse(ctx, w, errorCodes.ToAPIErr(code), r.URL)
+		return
+	}
 
 	dsc := mustReplicate(ctx, bucket, object, getMustReplicateOptions(objInfo.UserDefined, tagsStr, objInfo.ReplicationStatus, replication.MetadataReplicationType, opts))
 	if dsc.ReplicateAny() {
@@ -3266,6 +3285,7 @@ func (api objectAPIHandlers) PutObjectTaggingHandler(w http.ResponseWriter, r *h
 		writeErrorResponse(ctx, w, toAPIError(ctx, err), r.URL)
 		return
 	}
+	objInfo.UserTags = tagsStr
 
 	if dsc.ReplicateAny() {
 		scheduleReplication(ctx, objInfo, objAPI, dsc, replication.MetadataReplicationType)
@@ -3278,13 +3298,14 @@ func (api objectAPIHandlers) PutObjectTaggingHandler(w http.ResponseWriter, r *h
 	writeSuccessResponseHeadersOnly(w)
 
 	sendEvent(eventArgs{
-		EventName:    event.ObjectCreatedPutTagging,
-		BucketName:   bucket,
-		Object:       objInfo,
-		ReqParams:    extractReqParams(r),
-		RespElements: extractRespElements(w),
-		UserAgent:    r.UserAgent(),
-		Host:         handlers.GetSourceIP(r),
+		EventName:      event.ObjectCreatedPutTagging,
+		BucketName:     bucket,
+		Object:         objInfo,
+		IPFSTagControl: true,
+		ReqParams:      extractReqParams(r),
+		RespElements:   extractRespElements(w),
+		UserAgent:      r.UserAgent(),
+		Host:           handlers.GetSourceIP(r),
 	})
 }
 
@@ -3372,6 +3393,7 @@ func (api objectAPIHandlers) DeleteObjectTaggingHandler(w http.ResponseWriter, r
 		writeErrorResponse(ctx, w, toAPIError(ctx, err), r.URL)
 		return
 	}
+	oi.UserTags = ""
 
 	if dsc.ReplicateAny() {
 		scheduleReplication(ctx, oi, objAPI, dsc, replication.MetadataReplicationType)
@@ -3383,13 +3405,14 @@ func (api objectAPIHandlers) DeleteObjectTaggingHandler(w http.ResponseWriter, r
 	writeSuccessNoContent(w)
 
 	sendEvent(eventArgs{
-		EventName:    event.ObjectCreatedDeleteTagging,
-		BucketName:   bucket,
-		Object:       oi,
-		ReqParams:    extractReqParams(r),
-		RespElements: extractRespElements(w),
-		UserAgent:    r.UserAgent(),
-		Host:         handlers.GetSourceIP(r),
+		EventName:      event.ObjectCreatedDeleteTagging,
+		BucketName:     bucket,
+		Object:         oi,
+		IPFSTagControl: true,
+		ReqParams:      extractReqParams(r),
+		RespElements:   extractRespElements(w),
+		UserAgent:      r.UserAgent(),
+		Host:           handlers.GetSourceIP(r),
 	})
 }
 

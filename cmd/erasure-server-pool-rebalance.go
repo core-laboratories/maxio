@@ -1,19 +1,9 @@
-// Copyright (c) 2015-2022 MinIO, Inc.
-//
-// This file is part of MinIO Object Storage stack
-//
-// This program is free software: you can redistribute it and/or modify
-// it under the terms of the GNU Affero General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-//
+// Copyright (c) 2015-2021 MinIO, Inc.; 2026 MaxIO
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // This program is distributed in the hope that it will be useful
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU Affero General Public License for more details.
-//
-// You should have received a copy of the GNU Affero General Public License
-// along with this program.  If not, see <http://www.gnu.org/licenses/>.
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+// See the GNU Affero General Public License for more details.
 
 package cmd
 
@@ -32,13 +22,13 @@ import (
 	"github.com/dustin/go-humanize"
 	"github.com/lithammer/shortuuid/v4"
 	"github.com/minio/madmin-go/v3"
-	"github.com/minio/minio/internal/bucket/lifecycle"
-	objectlock "github.com/minio/minio/internal/bucket/object/lock"
-	"github.com/minio/minio/internal/bucket/replication"
-	"github.com/minio/minio/internal/bucket/versioning"
-	"github.com/minio/minio/internal/hash"
-	xioutil "github.com/minio/minio/internal/ioutil"
-	"github.com/minio/minio/internal/logger"
+	"github.com/core-laboratories/maxio/internal/bucket/lifecycle"
+	objectlock "github.com/core-laboratories/maxio/internal/bucket/object/lock"
+	"github.com/core-laboratories/maxio/internal/bucket/replication"
+	"github.com/core-laboratories/maxio/internal/bucket/versioning"
+	"github.com/core-laboratories/maxio/internal/hash"
+	xioutil "github.com/core-laboratories/maxio/internal/ioutil"
+	"github.com/core-laboratories/maxio/internal/logger"
 	"github.com/minio/pkg/v3/env"
 	"github.com/minio/pkg/v3/workers"
 )
@@ -173,7 +163,7 @@ func (z *erasureServerPools) initRebalanceMeta(ctx context.Context, buckets []st
 	for _, disk := range si.Disks {
 		// Ignore invalid.
 		if disk.PoolIndex < 0 || len(diskStats) <= disk.PoolIndex {
-			// https://github.com/minio/minio/issues/16500
+			// https://github.com/core-laboratories/maxio/issues/16500
 			continue
 		}
 		totalCap += disk.TotalSpace

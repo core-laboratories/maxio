@@ -1,8 +1,5 @@
-blank_issues_enabled: false
+blank_issues_enabled: true
 contact_links:
-  - name: MinIO Community Support
-    url: https://slack.min.io
-    about: Community support via Slack - for questions and discussions
-  - name: MinIO Enterprise Support (SUBNET)
-    url: https://min.io/pricing
-    about: Enterprise support with SLA - for production deployments and feature requests
+  - name: Security reports
+    url: https://github.com/core-laboratories/maxio/security/advisories/new
+    about: Report security issues privately.
