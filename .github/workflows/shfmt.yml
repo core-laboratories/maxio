@@ -7,16 +7,15 @@ on:
 
 permissions:
   contents: read
-    
+
 jobs:
   build:
     name: runner / shfmt
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: luizm/action-sh-checker@master
+      - uses: actions/checkout@v7.0.1
+      - uses: luizm/action-sh-checker@883217215b11c1fabbf00eb1a9a041f62d74c744 # v0.10.0
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SHFMT_OPTS: "-s"
         with:
           sh_checker_shellcheck_disable: true # disable for now

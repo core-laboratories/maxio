@@ -1,19 +1,9 @@
-// Copyright (c) 2015-2021 MinIO, Inc.
-//
-// This file is part of MinIO Object Storage stack
-//
-// This program is free software: you can redistribute it and/or modify
-// it under the terms of the GNU Affero General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-//
+// Copyright (c) 2015-2021 MinIO, Inc.; 2026 MaxIO
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // This program is distributed in the hope that it will be useful
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU Affero General Public License for more details.
-//
-// You should have received a copy of the GNU Affero General Public License
-// along with this program.  If not, see <http://www.gnu.org/licenses/>.
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+// See the GNU Affero General Public License for more details.
 
 package cmd
 
@@ -31,11 +21,11 @@ import (
 	"github.com/cespare/xxhash/v2"
 	"github.com/google/uuid"
 	jsoniter "github.com/json-iterator/go"
-	"github.com/minio/minio/internal/bpool"
-	"github.com/minio/minio/internal/bucket/lifecycle"
-	"github.com/minio/minio/internal/bucket/replication"
-	"github.com/minio/minio/internal/config/storageclass"
-	xhttp "github.com/minio/minio/internal/http"
+	"github.com/core-laboratories/maxio/internal/bpool"
+	"github.com/core-laboratories/maxio/internal/bucket/lifecycle"
+	"github.com/core-laboratories/maxio/internal/bucket/replication"
+	"github.com/core-laboratories/maxio/internal/config/storageclass"
+	xhttp "github.com/core-laboratories/maxio/internal/http"
 	"github.com/tinylib/msgp/msgp"
 )
 
@@ -965,7 +955,7 @@ func (x *xlMetaV2) loadIndexed(buf xlMetaBuf, data xlMetaInlineData) error {
 		}
 		ver.meta = meta
 
-		// Fix inconsistent compression index due to https://github.com/minio/minio/pull/20575
+		// Fix inconsistent compression index due to https://github.com/core-laboratories/maxio/pull/20575
 		// First search marshaled content for encoded values.
 		// We have bumped metaV to make this check cheaper.
 		if metaV < 3 && ver.header.Type == ObjectType && bytes.Contains(meta, []byte("\xa7PartIdx")) &&

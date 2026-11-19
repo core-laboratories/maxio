@@ -2,14 +2,17 @@
 name: Spelling
 on: [pull_request]
 
+permissions:
+  contents: read
+
 jobs:
   run:
     name: Spell Check with Typos
     runs-on: ubuntu-latest
     steps:
     - name: Checkout Actions Repository
-      uses: actions/checkout@v4
+      uses: actions/checkout@v7.0.1
 
     - name: Check spelling of repo
-      uses: crate-ci/typos@master
+      uses: crate-ci/typos@v1.52.0
 

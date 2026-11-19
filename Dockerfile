@@ -1,18 +1,17 @@
-FROM minio/minio:latest
+FROM golang:1.27-alpine3.24 AS build
 
-ARG TARGETARCH
-ARG RELEASE
+ENV GOFLAGS=-mod=mod
+ARG MAXIO_LDFLAGS="-s -w"
+WORKDIR /src
+COPY . .
+RUN CGO_ENABLED=0 go build -trimpath -ldflags="${MAXIO_LDFLAGS}" -o /maxio .
 
-RUN chmod -R 777 /usr/bin
-
-COPY ./minio-${TARGETARCH}.${RELEASE} /usr/bin/minio
-COPY ./minio-${TARGETARCH}.${RELEASE}.minisig /usr/bin/minio.minisig
-COPY ./minio-${TARGETARCH}.${RELEASE}.sha256sum /usr/bin/minio.sha256sum
-
-COPY dockerscripts/docker-entrypoint.sh /usr/bin/docker-entrypoint.sh
-
-ENTRYPOINT ["/usr/bin/docker-entrypoint.sh"]
-
+FROM alpine:3.24
+RUN apk upgrade --no-cache && apk add --no-cache ca-certificates && \
+	addgroup -S -g 1000 maxio && adduser -S -u 1000 -G maxio -h /data maxio
+COPY --from=build /maxio /usr/local/bin/maxio
+USER maxio
+EXPOSE 9000 9001
 VOLUME ["/data"]
-
-CMD ["minio"]
+ENTRYPOINT ["/usr/local/bin/maxio"]
+CMD ["server", "/data", "--console-address", ":9001"]

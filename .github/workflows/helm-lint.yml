@@ -15,16 +15,18 @@ permissions:
   contents: read
 
 jobs:
-  release:
+  lint:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7.0.1
 
       - name: Install Helm
-        uses: azure/setup-helm@v4
+        uses: azure/setup-helm@v5.1.0
 
       - name: Run helm lint
         run: |
-          cd helm/minio
+          cd helm/maxio
           helm lint .
+          helm template maxio . --set mode=standalone --set environment.MAXIO_IPFS_ENABLED=false > /dev/null
+          helm template maxio . --set environment.MAXIO_IPFS_ENABLED=false > /dev/null

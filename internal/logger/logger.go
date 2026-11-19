@@ -1,19 +1,9 @@
-// Copyright (c) 2015-2021 MinIO, Inc.
-//
-// This file is part of MinIO Object Storage stack
-//
-// This program is free software: you can redistribute it and/or modify
-// it under the terms of the GNU Affero General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-//
+// Copyright (c) 2015-2021 MinIO, Inc.; 2026 MaxIO
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // This program is distributed in the hope that it will be useful
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU Affero General Public License for more details.
-//
-// You should have received a copy of the GNU Affero General Public License
-// along with this program.  If not, see <http://www.gnu.org/licenses/>.
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+// See the GNU Affero General Public License for more details.
 
 package logger
 
@@ -35,8 +25,8 @@ import (
 	"github.com/minio/highwayhash"
 	"github.com/minio/madmin-go/v3"
 	"github.com/minio/madmin-go/v3/logger/log"
-	"github.com/minio/minio/internal/color"
-	xhttp "github.com/minio/minio/internal/http"
+	"github.com/core-laboratories/maxio/internal/color"
+	xhttp "github.com/core-laboratories/maxio/internal/http"
 )
 
 // HighwayHash key for logging in anonymous mode
@@ -145,7 +135,7 @@ func uniqueEntries(paths []string) []string {
 }
 
 // Init sets the trimStrings to possible GOPATHs
-// and GOROOT directories. Also append github.com/minio/minio
+// and GOROOT directories. Also append github.com/core-laboratories/maxio
 // This is done to clean up the filename, when stack trace is
 // displayed when an error happens.
 func Init(goPath string, goRoot string) {
@@ -189,9 +179,9 @@ func Init(goPath string, goRoot string) {
 	// Remove duplicate entries.
 	trimStrings = uniqueEntries(trimStrings)
 
-	// Add "github.com/minio/minio" as the last to cover
-	// paths like "{GOROOT}/src/github.com/minio/minio"
-	// and "{GOPATH}/src/github.com/minio/minio"
+	// Add "github.com/core-laboratories/maxio" as the last to cover
+	// paths like "{GOROOT}/src/github.com/core-laboratories/maxio"
+	// and "{GOPATH}/src/github.com/core-laboratories/maxio"
 	trimStrings = append(trimStrings, filepath.Join("github.com", "minio", "minio")+string(filepath.Separator))
 }
 

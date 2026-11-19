@@ -1,19 +1,9 @@
-// Copyright (c) 2015-2021 MinIO, Inc.
-//
-// This file is part of MinIO Object Storage stack
-//
-// This program is free software: you can redistribute it and/or modify
-// it under the terms of the GNU Affero General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-//
+// Copyright (c) 2015-2021 MinIO, Inc.; 2026 MaxIO
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // This program is distributed in the hope that it will be useful
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU Affero General Public License for more details.
-//
-// You should have received a copy of the GNU Affero General Public License
-// along with this program.  If not, see <http://www.gnu.org/licenses/>.
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+// See the GNU Affero General Public License for more details.
 
 package cmd
 
@@ -25,7 +15,7 @@ import (
 
 	"github.com/cheggaaa/pb"
 	humanize "github.com/dustin/go-humanize"
-	"github.com/minio/minio/internal/color"
+	"github.com/core-laboratories/maxio/internal/color"
 )
 
 // prepareUpdateMessage - prepares the update message, only if a
@@ -41,7 +31,7 @@ func prepareUpdateMessage(downloadURL string, older time.Duration) string {
 	newerThan := humanize.RelTime(t, t.Add(older), "before the latest release", "")
 
 	if globalServerCtxt.JSON {
-		return fmt.Sprintf("You are running an older version of MinIO released %s, update: %s", newerThan, downloadURL)
+		return fmt.Sprintf("You are running an older version of MaxIO released %s, update: %s", newerThan, downloadURL)
 	}
 
 	// Return the nicely colored and formatted update message.
@@ -50,7 +40,7 @@ func prepareUpdateMessage(downloadURL string, older time.Duration) string {
 
 // colorizeUpdateMessage - inspired from Yeoman project npm package https://github.com/yeoman/update-notifier
 func colorizeUpdateMessage(updateString string, newerThan string) string {
-	msgLine1Fmt := " You are running an older version of MinIO released %s "
+	msgLine1Fmt := " You are running an older version of MaxIO released %s "
 	msgLine2Fmt := " Update: %s "
 
 	// Calculate length *without* color coding: with ANSI terminal

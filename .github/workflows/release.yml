@@ -1,0 +1,181 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  contents: read
+
+env:
+  GOFLAGS: -mod=mod
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@v7.1.0
+        with:
+          go-version: '1.27.x'
+          cache: false
+      - uses: azure/setup-helm@v5.1.0
+      - name: Verify tag and chart version
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REPOSITORY" = core-laboratories/maxio
+          [[ "$GITHUB_REF_NAME" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]
+          version="${GITHUB_REF_NAME#v}"
+          chart_version="$(awk '$1 == "version:" { print $2; exit }' helm/maxio/Chart.yaml)"
+          app_version="$(awk '$1 == "appVersion:" { print $2; exit }' helm/maxio/Chart.yaml)"
+          test "$chart_version" = "$version"
+          test "$app_version" = "$version"
+          git fetch origin master
+          git merge-base --is-ancestor HEAD origin/master
+      - run: go test ./...
+      - run: go install golang.org/x/vuln/cmd/govulncheck@v1.10.0
+      - run: |
+          "$(go env GOPATH)/bin/govulncheck" ./...
+      - run: helm lint helm/maxio
+      - run: helm template maxio helm/maxio --set mode=standalone --set environment.MAXIO_IPFS_ENABLED=false > /dev/null
+      - run: helm template maxio helm/maxio --set environment.MAXIO_IPFS_ENABLED=false > /dev/null
+
+  binaries:
+    needs: verify
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        goos: [linux, darwin, windows]
+        goarch: [amd64, arm64]
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@v7.1.0
+        with:
+          go-version: '1.27.x'
+          cache: false
+      - name: Build archive
+        shell: bash
+        env:
+          TARGET_OS: ${{ matrix.goos }}
+          TARGET_ARCH: ${{ matrix.goarch }}
+          MAXIO_RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          mkdir -p out dist
+          flags="$(go run buildscripts/gen-ldflags.go)"
+          version="${GITHUB_REF_NAME#v}"
+          if [[ "$TARGET_OS" = windows ]]; then
+            GOOS="$TARGET_OS" GOARCH="$TARGET_ARCH" CGO_ENABLED=0 go build -trimpath -ldflags "$flags" -o out/maxio.exe .
+            zip -j "dist/maxio-${version}-${TARGET_OS}-${TARGET_ARCH}.zip" out/maxio.exe
+          else
+            GOOS="$TARGET_OS" GOARCH="$TARGET_ARCH" CGO_ENABLED=0 go build -trimpath -ldflags "$flags" -o out/maxio .
+            tar -C out -czf "dist/maxio-${version}-${TARGET_OS}-${TARGET_ARCH}.tar.gz" maxio
+          fi
+      - uses: actions/upload-artifact@v7.0.2
+        with:
+          name: binary-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: dist/*
+          if-no-files-found: error
+          compression-level: 0
+
+  image:
+    needs: verify
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@v7.1.0
+        with:
+          go-version: '1.27.x'
+          cache: false
+      - name: Prepare build metadata
+        shell: bash
+        env:
+          MAXIO_RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          echo "MAXIO_LDFLAGS=$(go run buildscripts/gen-ldflags.go)" >> "$GITHUB_ENV"
+          echo "MAXIO_IMAGE_TAG=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
+      - uses: docker/setup-qemu-action@v4.4.0
+      - uses: docker/setup-buildx-action@v4.4.1
+      - uses: docker/login-action@v4.8.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v7.4.0
+        with:
+          context: .
+          push: true
+          platforms: linux/amd64,linux/arm64
+          tags: ghcr.io/${{ github.repository }}:${{ env.MAXIO_IMAGE_TAG }}
+          labels: org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+          build-args: |
+            MAXIO_LDFLAGS=${{ env.MAXIO_LDFLAGS }}
+      - name: Archive Docker images
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          image="ghcr.io/${GITHUB_REPOSITORY}:${MAXIO_IMAGE_TAG}"
+          for arch in amd64 arm64; do
+            docker pull --platform "linux/${arch}" "$image"
+            docker image save --platform "linux/${arch}" "$image" | gzip -1 > "dist/maxio-${MAXIO_IMAGE_TAG}-linux-${arch}-docker.tar.gz"
+          done
+      - uses: actions/upload-artifact@v7.0.2
+        with:
+          name: docker-images
+          path: dist/*
+          if-no-files-found: error
+          compression-level: 0
+
+  publish:
+    needs: [verify, binaries, image]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: azure/setup-helm@v5.1.0
+      - uses: actions/download-artifact@v8.0.2
+        with:
+          pattern: binary-*
+          path: dist
+          merge-multiple: true
+      - uses: actions/download-artifact@v8.0.2
+        with:
+          name: docker-images
+          path: dist
+      - name: Package and publish Helm chart
+        shell: bash
+        env:
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          version="${GITHUB_REF_NAME#v}"
+          helm package helm/maxio --version "$version" --app-version "$version" --destination dist
+          printf '%s' "$GHCR_TOKEN" | helm registry login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+          helm push "dist/maxio-${version}.tgz" oci://ghcr.io/core-laboratories/charts
+      - name: Publish GitHub release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          gh release create "$GITHUB_REF_NAME" dist/* --verify-tag --title "$GITHUB_REF_NAME" --generate-notes

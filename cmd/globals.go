@@ -1,19 +1,9 @@
-// Copyright (c) 2015-2021 MinIO, Inc.
-//
-// This file is part of MinIO Object Storage stack
-//
-// This program is free software: you can redistribute it and/or modify
-// it under the terms of the GNU Affero General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-//
+// Copyright (c) 2015-2021 MinIO, Inc.; 2026 MaxIO
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // This program is distributed in the hope that it will be useful
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU Affero General Public License for more details.
-//
-// You should have received a copy of the GNU Affero General Public License
-// along with this program.  If not, see <http://www.gnu.org/licenses/>.
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+// See the GNU Affero General Public License for more details.
 
 package cmd
 
@@ -30,31 +20,31 @@ import (
 	"github.com/minio/madmin-go/v3"
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/set"
-	"github.com/minio/minio/internal/bpool"
-	"github.com/minio/minio/internal/bucket/bandwidth"
-	"github.com/minio/minio/internal/config"
-	"github.com/minio/minio/internal/config/browser"
-	"github.com/minio/minio/internal/grid"
-	"github.com/minio/minio/internal/handlers"
-	"github.com/minio/minio/internal/kms"
+	"github.com/core-laboratories/maxio/internal/bpool"
+	"github.com/core-laboratories/maxio/internal/bucket/bandwidth"
+	"github.com/core-laboratories/maxio/internal/config"
+	"github.com/core-laboratories/maxio/internal/config/browser"
+	"github.com/core-laboratories/maxio/internal/grid"
+	"github.com/core-laboratories/maxio/internal/handlers"
+	"github.com/core-laboratories/maxio/internal/kms"
 	"go.uber.org/atomic"
 
 	"github.com/dustin/go-humanize"
-	"github.com/minio/minio/internal/auth"
-	"github.com/minio/minio/internal/config/callhome"
-	"github.com/minio/minio/internal/config/compress"
-	"github.com/minio/minio/internal/config/dns"
-	"github.com/minio/minio/internal/config/drive"
-	idplugin "github.com/minio/minio/internal/config/identity/plugin"
-	polplugin "github.com/minio/minio/internal/config/policy/plugin"
-	"github.com/minio/minio/internal/config/storageclass"
-	"github.com/minio/minio/internal/config/subnet"
-	xhttp "github.com/minio/minio/internal/http"
+	"github.com/core-laboratories/maxio/internal/auth"
+	"github.com/core-laboratories/maxio/internal/config/callhome"
+	"github.com/core-laboratories/maxio/internal/config/compress"
+	"github.com/core-laboratories/maxio/internal/config/dns"
+	"github.com/core-laboratories/maxio/internal/config/drive"
+	idplugin "github.com/core-laboratories/maxio/internal/config/identity/plugin"
+	polplugin "github.com/core-laboratories/maxio/internal/config/policy/plugin"
+	"github.com/core-laboratories/maxio/internal/config/storageclass"
+	"github.com/core-laboratories/maxio/internal/config/subnet"
+	xhttp "github.com/core-laboratories/maxio/internal/http"
 	etcd "go.etcd.io/etcd/client/v3"
 
-	levent "github.com/minio/minio/internal/config/lambda/event"
-	"github.com/minio/minio/internal/event"
-	"github.com/minio/minio/internal/pubsub"
+	levent "github.com/core-laboratories/maxio/internal/config/lambda/event"
+	"github.com/core-laboratories/maxio/internal/event"
+	"github.com/core-laboratories/maxio/internal/pubsub"
 	"github.com/minio/pkg/v3/certs"
 	"github.com/minio/pkg/v3/env"
 	xnet "github.com/minio/pkg/v3/net"

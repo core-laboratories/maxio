@@ -1,0 +1,112 @@
+{{- if and .Values.metrics.serviceMonitor.enabled .Values.metrics.serviceMonitor.includeNode }}
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ template "maxio.fullname" . }}
+  {{- if .Values.metrics.serviceMonitor.namespace }}
+  namespace: {{ .Values.metrics.serviceMonitor.namespace }}
+  {{- end }}
+  labels:
+    app: {{ template "maxio.name" . }}
+    chart: {{ template "maxio.chart" . }}
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
+    {{- if .Values.metrics.serviceMonitor.additionalLabels }}
+      {{- toYaml .Values.metrics.serviceMonitor.additionalLabels | nindent 4 }}
+    {{- end }}
+  {{- if .Values.metrics.serviceMonitor.annotations }}
+  annotations: {{- toYaml .Values.metrics.serviceMonitor.annotations | nindent 4 }}
+  {{- end }}
+spec:
+  endpoints:
+    {{- if .Values.tls.enabled }}
+    - port: https
+      scheme: https
+      tlsConfig:
+        ca:
+          secret:
+            name: {{ .Values.tls.certSecret }}
+            key: {{ .Values.tls.publicCrt }}
+        serverName: {{ template "maxio.fullname" . }}
+    {{- else }}
+    - port: http
+      scheme: http
+    {{- end }}
+      path: /maxio/v2/metrics/node
+      {{- if .Values.metrics.serviceMonitor.interval }}
+      interval: {{ .Values.metrics.serviceMonitor.interval }}
+      {{- end }}
+      {{- if .Values.metrics.serviceMonitor.scrapeTimeout }}
+      scrapeTimeout: {{ .Values.metrics.serviceMonitor.scrapeTimeout }}
+      {{- end }}
+      {{- if .Values.metrics.serviceMonitor.relabelConfigs }}
+        {{- toYaml .Values.metrics.serviceMonitor.relabelConfigs | nindent 6 }}
+      {{- end }}
+      {{- if not .Values.metrics.serviceMonitor.public }}
+      bearerTokenSecret:
+        name: {{ template "maxio.fullname" . }}-prometheus
+        key: token
+      {{- end }}
+  namespaceSelector:
+    matchNames:
+      - {{ .Release.Namespace | quote }}
+  selector:
+    matchLabels:
+      app: {{ include "maxio.name" . }}
+      release: {{ .Release.Name }}
+      monitoring: "true"
+{{- end }}
+{{- if .Values.metrics.serviceMonitor.enabled }}
+---
+apiVersion: monitoring.coreos.com/v1
+kind: Probe
+metadata:
+  name: {{ template "maxio.fullname" . }}-cluster
+  {{- if .Values.metrics.serviceMonitor.namespace }}
+  namespace: {{ .Values.metrics.serviceMonitor.namespace }}
+  {{- end }}
+  labels:
+    app: {{ template "maxio.name" . }}
+    chart: {{ template "maxio.chart" . }}
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
+    {{- if .Values.metrics.serviceMonitor.additionalLabels }}
+      {{- toYaml .Values.metrics.serviceMonitor.additionalLabels | nindent 4 }}
+    {{- end }}
+spec:
+  jobName: {{ template "maxio.fullname" . }}
+  {{- if .Values.tls.enabled }}
+  tlsConfig:
+    ca:
+      secret:
+        name: {{ .Values.tls.certSecret }}
+        key: {{ .Values.tls.publicCrt }}
+    serverName: {{ template "maxio.fullname" . }}
+  {{- end }}
+  prober:
+    url: {{ template "maxio.fullname" . }}.{{ .Release.Namespace }}:{{ .Values.service.port }}
+    path: /maxio/v2/metrics/cluster
+    {{- if .Values.tls.enabled }}
+    scheme: https
+    {{- else }}
+    scheme: http
+    {{- end }}
+  {{- if .Values.metrics.serviceMonitor.relabelConfigsCluster }}
+    {{- toYaml .Values.metrics.serviceMonitor.relabelConfigsCluster | nindent 2 }}
+  {{- end }}
+  targets:
+    staticConfig:
+      static:
+      - {{ template "maxio.fullname" . }}.{{ .Release.Namespace }}
+      {{- if not .Values.metrics.serviceMonitor.public }}
+      {{- if .Values.metrics.serviceMonitor.interval }}
+      interval: {{ .Values.metrics.serviceMonitor.interval }}
+      {{- end }}
+      {{- if .Values.metrics.serviceMonitor.scrapeTimeout }}
+      scrapeTimeout: {{ .Values.metrics.serviceMonitor.scrapeTimeout }}
+      {{- end }}
+      bearerTokenSecret:
+        name: {{ template "maxio.fullname" . }}-prometheus
+        key: token
+      {{- end }}
+{{- end }}

@@ -1,0 +1,33 @@
+{{- if and (.Values.networkPolicy.enabled) (eq .Values.networkPolicy.flavor "cilium") }}
+kind: CiliumNetworkPolicy
+apiVersion: cilium.io/v2
+metadata:
+  name: {{ template "maxio.fullname" . }}
+  labels:
+    app: {{ template "maxio.name" . }}
+    chart: {{ template "maxio.chart" . }}
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
+spec:
+  endpointSelector:
+    matchLabels:
+      app: {{ template "maxio.name" . }}
+      release: {{ .Release.Name }}
+  ingress:
+  - toPorts:
+    - ports:
+      - port: "{{ .Values.maxioAPIPort }}"
+        protocol: TCP
+      - port: "{{ .Values.maxioConsolePort }}"
+        protocol: TCP
+    {{- if not .Values.networkPolicy.allowExternal }}
+    fromEndpoints:
+    - matchLabels:
+        {{ template "maxio.name" . }}-client: "true"
+    {{- end }}
+  egress:
+  {{- range $entity := .Values.networkPolicy.egressEntities }}
+  - toEntities:
+    - {{ $entity }}
+  {{- end }}
+{{- end }}

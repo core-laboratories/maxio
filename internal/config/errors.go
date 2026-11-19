@@ -1,19 +1,9 @@
-// Copyright (c) 2015-2021 MinIO, Inc.
-//
-// This file is part of MinIO Object Storage stack
-//
-// This program is free software: you can redistribute it and/or modify
-// it under the terms of the GNU Affero General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-//
+// Copyright (c) 2015-2021 MinIO, Inc.; 2026 MaxIO
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // This program is distributed in the hope that it will be useful
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU Affero General Public License for more details.
-//
-// You should have received a copy of the GNU Affero General Public License
-// along with this program.  If not, see <http://www.gnu.org/licenses/>.
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+// See the GNU Affero General Public License for more details.
 
 package config
 
@@ -76,31 +66,31 @@ var (
 	ErrInvalidRootUserCredentials = newErrFn(
 		"Invalid credentials",
 		"Please provide correct credentials",
-		EnvRootUser+` length should be at least 3, and `+EnvRootPassword+` length at least 8 characters`,
+		`MAXIO_ROOT_USER length should be at least 3, and MAXIO_ROOT_PASSWORD length at least 8 characters`,
 	)
 
 	ErrMissingEnvCredentialRootUser = newErrFn(
-		"Missing credential environment variable, \""+EnvRootUser+"\"",
-		"Environment variable \""+EnvRootUser+"\" is missing",
-		`Root user name (access key) and root password (secret key) are expected to be specified via environment variables MINIO_ROOT_USER and MINIO_ROOT_PASSWORD respectively`,
+		"Missing credential environment variable, \"MAXIO_ROOT_USER\"",
+		"Environment variable \"MAXIO_ROOT_USER\" is missing",
+		`Root user name (access key) and root password (secret key) are expected to be specified via environment variables MAXIO_ROOT_USER and MAXIO_ROOT_PASSWORD respectively`,
 	)
 
 	ErrMissingEnvCredentialRootPassword = newErrFn(
-		"Missing credential environment variable, \""+EnvRootPassword+"\"",
-		"Environment variable \""+EnvRootPassword+"\" is missing",
-		`Root user name (access key) and root password (secret key) are expected to be specified via environment variables MINIO_ROOT_USER and MINIO_ROOT_PASSWORD respectively`,
+		"Missing credential environment variable, \"MAXIO_ROOT_PASSWORD\"",
+		"Environment variable \"MAXIO_ROOT_PASSWORD\" is missing",
+		`Root user name (access key) and root password (secret key) are expected to be specified via environment variables MAXIO_ROOT_USER and MAXIO_ROOT_PASSWORD respectively`,
 	)
 
 	ErrMissingEnvCredentialAccessKey = newErrFn(
 		"Missing credential environment variable, \""+EnvAccessKey+"\"",
 		"Environment variables \""+EnvAccessKey+"\" and \""+EnvSecretKey+"\" are deprecated",
-		`Root user name (access key) and root password (secret key) are expected to be specified via environment variables MINIO_ROOT_USER and MINIO_ROOT_PASSWORD respectively`,
+		`Root user name (access key) and root password (secret key) are expected to be specified via environment variables MAXIO_ROOT_USER and MAXIO_ROOT_PASSWORD respectively`,
 	)
 
 	ErrMissingEnvCredentialSecretKey = newErrFn(
 		"Missing credential environment variable, \""+EnvSecretKey+"\"",
 		"Environment variables \""+EnvSecretKey+"\" and \""+EnvAccessKey+"\" are deprecated",
-		`Root user name (access key) and root password (secret key) are expected to be specified via environment variables MINIO_ROOT_USER and MINIO_ROOT_PASSWORD respectively`,
+		`Root user name (access key) and root password (secret key) are expected to be specified via environment variables MAXIO_ROOT_USER and MAXIO_ROOT_PASSWORD respectively`,
 	)
 
 	ErrInvalidErasureEndpoints = newErrFn(
@@ -120,7 +110,7 @@ var (
 		"Please check the value",
 		`MINIO_STORAGE_CLASS_STANDARD: Format "EC:<Default_Parity_Standard_Class>" (e.g. "EC:3"). This sets the number of parity drives for MinIO server in Standard mode. Objects are stored in Standard mode, if storage class is not defined in Put request
 MINIO_STORAGE_CLASS_RRS: Format "EC:<Default_Parity_Reduced_Redundancy_Class>" (e.g. "EC:3"). This sets the number of parity drives for MinIO server in Reduced Redundancy mode. Objects are stored in Reduced Redundancy mode, if Put request specifies RRS storage class
-Refer to the link https://github.com/minio/minio/tree/master/docs/erasure/storage-class for more information`,
+Refer to the link https://github.com/core-laboratories/maxio/tree/master/docs/erasure/storage-class for more information`,
 	)
 
 	ErrUnexpectedBackendVersion = newErrFn(
