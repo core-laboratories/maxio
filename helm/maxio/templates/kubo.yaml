@@ -1,0 +1,214 @@
+{{- if .Values.kubo.enabled }}
+{{- $name := include "maxio.kuboName" . }}
+{{- $tlsSecret := required "kubo.tls.existingSecret is required when kubo.enabled=true" .Values.kubo.tls.existingSecret }}
+{{- $authSecret := required "kubo.auth.existingSecret is required when kubo.enabled=true" .Values.kubo.auth.existingSecret }}
+{{- $env := .Values.environment | default dict }}
+{{- if or (hasKey $env "MAXIO_IPFS_KUBO_ENDPOINT") (hasKey $env "MAXIO_IPFS_KUBO_TOKEN") (hasKey $env "MAXIO_IPFS_KUBO_CA_FILE") }}
+{{- fail "When kubo.enabled=true, remove MAXIO_IPFS_KUBO_ENDPOINT, MAXIO_IPFS_KUBO_TOKEN, and MAXIO_IPFS_KUBO_CA_FILE from environment; the chart provides them" }}
+{{- end }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ $name }}-proxy
+  labels:
+    app: {{ $name }}
+    release: {{ .Release.Name }}
+data:
+  lockdown.sh: |
+    #!/bin/sh
+    set -e
+    ipfs config Addresses.API /ip4/127.0.0.1/tcp/5001
+    ipfs config Addresses.Gateway /ip4/127.0.0.1/tcp/8080
+  Caddyfile: |
+    :8443 {
+      tls /etc/kubo/tls/tls.crt /etc/kubo/tls/tls.key
+      @authorized header Authorization "Bearer {$KUBO_TOKEN}"
+      handle @authorized {
+        reverse_proxy 127.0.0.1:5001
+      }
+      handle {
+        respond "unauthorized" 401
+      }
+    }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $name }}
+  labels:
+    app: {{ $name }}
+    release: {{ .Release.Name }}
+spec:
+  type: ClusterIP
+  selector:
+    app: {{ $name }}
+    release: {{ .Release.Name }}
+  ports:
+    - name: rpc-https
+      port: 8443
+      targetPort: rpc-https
+      protocol: TCP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $name }}-swarm
+  labels:
+    app: {{ $name }}
+    release: {{ .Release.Name }}
+spec:
+  type: {{ .Values.kubo.swarmService.type }}
+  selector:
+    app: {{ $name }}
+    release: {{ .Release.Name }}
+  ports:
+    - name: swarm-tcp
+      port: 4001
+      targetPort: swarm-tcp
+      protocol: TCP
+    - name: swarm-udp
+      port: 4001
+      targetPort: swarm-udp
+      protocol: UDP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $name }}
+  labels:
+    app: {{ $name }}
+    release: {{ .Release.Name }}
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: {{ $name }}
+      release: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app: {{ $name }}
+        release: {{ .Release.Name }}
+    spec:
+      securityContext:
+        fsGroup: 1000
+      containers:
+        - name: kubo
+          image: "{{ .Values.kubo.image.repository }}:{{ .Values.kubo.image.tag }}"
+          imagePullPolicy: {{ .Values.kubo.image.pullPolicy }}
+          args: ["daemon", "--migrate"]
+          env:
+            - name: IPFS_PATH
+              value: /data/ipfs
+          ports:
+            - name: swarm-tcp
+              containerPort: 4001
+              protocol: TCP
+            - name: swarm-udp
+              containerPort: 4001
+              protocol: UDP
+          readinessProbe:
+            exec:
+              command: ["ipfs", "--api", "/ip4/127.0.0.1/tcp/5001", "version"]
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          resources: {{- toYaml .Values.kubo.resources | nindent 12 }}
+          volumeMounts:
+            - name: kubo-data
+              mountPath: /data/ipfs
+            - name: proxy-config
+              mountPath: /container-init.d/10-lockdown.sh
+              subPath: lockdown.sh
+              readOnly: true
+        - name: rpc-proxy
+          image: "{{ .Values.kubo.proxyImage.repository }}:{{ .Values.kubo.proxyImage.tag }}"
+          imagePullPolicy: {{ .Values.kubo.proxyImage.pullPolicy }}
+          env:
+            - name: KUBO_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $authSecret | quote }}
+                  key: {{ .Values.kubo.auth.tokenKey | quote }}
+          ports:
+            - name: rpc-https
+              containerPort: 8443
+              protocol: TCP
+          readinessProbe:
+            tcpSocket:
+              port: rpc-https
+            initialDelaySeconds: 2
+            periodSeconds: 10
+          resources: {{- toYaml .Values.kubo.proxyResources | nindent 12 }}
+          volumeMounts:
+            - name: proxy-config
+              mountPath: /etc/caddy/Caddyfile
+              subPath: Caddyfile
+              readOnly: true
+            - name: kubo-tls
+              mountPath: /etc/kubo/tls
+              readOnly: true
+      volumes:
+        - name: kubo-data
+          persistentVolumeClaim:
+            claimName: {{ .Values.kubo.persistence.existingClaim | default $name | quote }}
+        - name: proxy-config
+          configMap:
+            name: {{ $name }}-proxy
+            defaultMode: 0555
+        - name: kubo-tls
+          secret:
+            secretName: {{ $tlsSecret | quote }}
+            items:
+              - key: tls.crt
+                path: tls.crt
+              - key: tls.key
+                path: tls.key
+---
+{{- if not .Values.kubo.persistence.existingClaim }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ $name }}
+  labels:
+    app: {{ $name }}
+    release: {{ .Release.Name }}
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: {{ .Values.kubo.persistence.size | quote }}
+  {{- if .Values.kubo.persistence.storageClass }}
+  storageClassName: {{ .Values.kubo.persistence.storageClass | quote }}
+  {{- end }}
+---
+{{- end }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ $name }}
+  labels:
+    app: {{ $name }}
+    release: {{ .Release.Name }}
+spec:
+  podSelector:
+    matchLabels:
+      app: {{ $name }}
+      release: {{ .Release.Name }}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: {{ include "maxio.name" . }}
+              release: {{ .Release.Name }}
+      ports:
+        - port: 8443
+          protocol: TCP
+    - ports:
+        - port: 4001
+          protocol: TCP
+        - port: 4001
+          protocol: UDP
+{{- end }}

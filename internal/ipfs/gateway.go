@@ -41,8 +41,16 @@ func (g *PublicGateway) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "busy", http.StatusTooManyRequests)
 		return
 	}
+	ipns := strings.HasPrefix(r.URL.Path, "/ipns/")
+	name := ""
 	cid := strings.TrimPrefix(r.URL.Path, "/ipfs/")
-	if cid == r.URL.Path && g.Manager.Config.GatewayDomain != "" {
+	if ipns {
+		name = strings.TrimPrefix(r.URL.Path, "/ipns/")
+		if !ipnsNamePattern.MatchString(name) {
+			http.NotFound(w, r)
+			return
+		}
+	} else if cid == r.URL.Path && g.Manager.Config.GatewayDomain != "" {
 		host := r.Host
 		if h, _, err := net.SplitHostPort(host); err == nil {
 			host = h
@@ -52,7 +60,7 @@ func (g *PublicGateway) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			cid = strings.TrimSuffix(strings.ToLower(host), suffix)
 		}
 	}
-	if !cidPattern.MatchString(cid) {
+	if !ipns && !cidPattern.MatchString(cid) {
 		http.NotFound(w, r)
 		return
 	}
@@ -63,12 +71,31 @@ func (g *PublicGateway) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	var chosen *Job
 	var reader io.ReadCloser
+	var published *Job
+	if ipns {
+		for i := range jobs {
+			job := &jobs[i]
+			if job.SignedIPNS && !newerSignedRecord(*job, jobs) && job.DesiredPin && job.Status == Pinned && job.IPNSName == name && job.IPNSCID == job.CID && job.IPNSExpiry.After(time.Now()) && (published == nil || job.Object.Modified.After(published.Object.Modified)) {
+				published = job
+			}
+		}
+		if published == nil {
+			http.NotFound(w, r)
+			return
+		}
+		cid = published.CID
+	}
 	for i := range jobs {
 		job := &jobs[i]
-		if job.CID == cid && job.DesiredPin && job.Access == Public && job.Status == Pinned && job.Replicas >= g.Manager.Config.Replication {
+		matches := !job.SignedIPNS && job.CID == cid
+		if ipns {
+			matches = matches && job.Object.Owner == published.Object.Owner && job.Object.Bucket == published.Object.Bucket
+		}
+		if matches && job.DesiredPin && job.Access == Public && job.Status == Pinned && job.Replicas >= g.Manager.Config.Replication {
 			candidate, err := g.Manager.Source.Open(r.Context(), job.Object)
 			if err == nil {
 				chosen = job
+				cid = job.CID
 				reader = candidate
 				break
 			}
@@ -84,7 +111,11 @@ func (g *PublicGateway) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("X-Content-Type-Options", "nosniff")
 	w.Header().Set("Content-Security-Policy", "sandbox")
 	w.Header().Set("Cross-Origin-Resource-Policy", "cross-origin")
-	w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+	if ipns {
+		w.Header().Set("Cache-Control", "public, max-age=60")
+	} else {
+		w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+	}
 	w.Header().Set("ETag", `"`+cid+`"`)
 	start, length, partial, err := gatewayRange(r.Header.Get("Range"), chosen.Object.Size)
 	if err != nil {

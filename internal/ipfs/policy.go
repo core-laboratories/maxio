@@ -23,11 +23,10 @@ const (
 
 // Policy is a request. It is never an authorization grant.
 type Policy struct {
-	Pin      *bool
-	Access   *Access
-	IPNS     string
-	IPNSAuto *bool
-	CoreIDs  []string
+	Pin       *bool
+	Access    *Access
+	Republish *bool
+	CoreIDs   []string
 }
 
 func ParseMetadata(metadata map[string]string) (Policy, error) {
@@ -77,17 +76,18 @@ func parsePolicy(fields map[string]string, metadata bool) (Policy, error) {
 				return Policy{}, fmt.Errorf("%s: invalid access", key)
 			}
 			p.Access = &a
-		case "maxio-ipns-auto":
+		case "maxio-ipns-republish":
+			if metadata {
+				return Policy{}, errors.New("IPNS republishing is controlled by S3 tags")
+			}
 			b, err := parseBool(value)
 			if err != nil {
 				return Policy{}, fmt.Errorf("%s: %w", key, err)
 			}
-			p.IPNSAuto = &b
-		case "maxio-ipns":
-			if len(value) > 128 || strings.ContainsAny(value, "/\\\x00") {
-				return Policy{}, fmt.Errorf("%s: invalid key identifier", key)
+			if b {
+				return Policy{}, errors.New("IPNS republishing is enabled at startup; only false is accepted on a record")
 			}
-			p.IPNS = value
+			p.Republish = &b
 		case "maxio-core-ids":
 			if !metadata {
 				return Policy{}, errors.New("CORE IDs are not supported in object tags")

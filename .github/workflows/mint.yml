@@ -11,7 +11,7 @@ jobs:
       - run: docker build -t maxio:ci .
       - name: Check health endpoint
         run: |
-          docker run -d --name maxio-ci -p 9000:9000 -e MAXIO_ROOT_USER=admin -e MAXIO_ROOT_PASSWORD=change-me -e MAXIO_IPFS_ENABLED=false maxio:ci
+          docker run -d --name maxio-ci -p 9000:9000 -e MAXIO_ROOT_USER=admin -e MAXIO_ROOT_PASSWORD=change-me maxio:ci
           trap 'docker rm -f maxio-ci' EXIT
           for attempt in $(seq 1 30); do
             if curl -fsS http://localhost:9000/minio/health/live; then exit 0; fi

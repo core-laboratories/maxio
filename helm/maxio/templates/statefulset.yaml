@@ -119,6 +119,11 @@ spec:
             - name: extra-secret
               mountPath: "/tmp/maxio-config-env"
             {{- end }}
+            {{- if .Values.kubo.enabled }}
+            - name: kubo-ca
+              mountPath: /etc/maxio/kubo
+              readOnly: true
+            {{- end }}
             {{- include "maxio.tlsKeysVolumeMount" . | indent 12 }}
             {{- if .Values.extraVolumeMounts }}
               {{- toYaml .Values.extraVolumeMounts | nindent 12 }}
@@ -139,6 +144,17 @@ spec:
                 secretKeyRef:
                   name: {{ template "maxio.secretName" . }}
                   key: rootPassword
+            {{- if .Values.kubo.enabled }}
+            - name: MAXIO_IPFS_KUBO_ENDPOINT
+              value: "https://{{ include "maxio.kuboName" . }}.{{ .Release.Namespace }}.svc:8443"
+            - name: MAXIO_IPFS_KUBO_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.kubo.auth.existingSecret | quote }}
+                  key: {{ .Values.kubo.auth.tokenKey | quote }}
+            - name: MAXIO_IPFS_KUBO_CA_FILE
+              value: /etc/maxio/kubo/ca.crt
+            {{- end }}
             {{- if .Values.extraSecret }}
             - name: MAXIO_CONFIG_ENV_FILE
               value: "/tmp/maxio-config-env/config.env"
@@ -217,6 +233,14 @@ spec:
         - name: maxio-user
           secret:
             secretName: {{ template "maxio.secretName" . }}
+        {{- if .Values.kubo.enabled }}
+        - name: kubo-ca
+          secret:
+            secretName: {{ .Values.kubo.tls.existingSecret | quote }}
+            items:
+              - key: ca.crt
+                path: ca.crt
+        {{- end }}
         {{- if .Values.extraSecret }}
         - name: extra-secret
           secret:

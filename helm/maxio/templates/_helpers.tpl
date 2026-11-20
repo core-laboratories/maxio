@@ -6,6 +6,11 @@ Expand the name of the chart.
   {{- default .Chart.Name .Values.nameOverride | trunc 63 | trimSuffix "-" -}}
 {{- end -}}
 
+{{/* Name of the optional Kubo node and its RPC service. */}}
+{{- define "maxio.kuboName" -}}
+{{- printf "%s-kubo" (include "maxio.fullname" . | trunc 50 | trimSuffix "-") -}}
+{{- end -}}
+
 {{/*
 Create a default fully qualified app name.
 We truncate at 63 chars because some Kubernetes name fields are limited to this (by the DNS naming spec).

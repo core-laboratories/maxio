@@ -9,6 +9,8 @@ package ipfs
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -17,8 +19,10 @@ import (
 	"net/http"
 	"net/textproto"
 	"net/url"
+	"os"
 	"path"
 	"regexp"
+	"strconv"
 	"strings"
 )
 
@@ -43,18 +47,36 @@ type KuboClient struct {
 }
 
 type ClusterClient struct {
-	endpoint string
-	user     string
-	password string
-	client   *http.Client
+	endpoint    string
+	user        string
+	password    string
+	replication int
+	client      *http.Client
 }
 
-func NewKuboClient(c Config) *KuboClient {
-	return &KuboClient{c.KuboEndpoint, c.KuboToken, c.Chunker, &http.Client{Timeout: c.RequestTimeout}}
+func NewKuboClient(c Config) (*KuboClient, error) {
+	client := &http.Client{Timeout: c.RequestTimeout}
+	if c.KuboCAFile != "" {
+		pem, err := os.ReadFile(c.KuboCAFile)
+		if err != nil {
+			return nil, fmt.Errorf("Kubo CA file: %w", err)
+		}
+		roots, err := x509.SystemCertPool()
+		if err != nil || roots == nil {
+			roots = x509.NewCertPool()
+		}
+		if !roots.AppendCertsFromPEM(pem) {
+			return nil, errors.New("Kubo CA file contains no certificates")
+		}
+		transport := http.DefaultTransport.(*http.Transport).Clone()
+		transport.TLSClientConfig = &tls.Config{RootCAs: roots, MinVersion: tls.VersionTLS12}
+		client.Transport = transport
+	}
+	return &KuboClient{c.KuboEndpoint, c.KuboToken, c.Chunker, client}, nil
 }
 
 func NewClusterClient(c Config) *ClusterClient {
-	return &ClusterClient{c.ClusterEndpoint, c.ClusterUser, c.ClusterPassword, &http.Client{Timeout: c.RequestTimeout}}
+	return &ClusterClient{c.ClusterEndpoint, c.ClusterUser, c.ClusterPassword, c.Replication, &http.Client{Timeout: c.RequestTimeout}}
 }
 
 func (k *KuboClient) Add(ctx context.Context, filename string, content io.Reader) (string, error) {
@@ -162,7 +184,8 @@ func (c *ClusterClient) Pin(ctx context.Context, cid string) error {
 	if !cidPattern.MatchString(cid) {
 		return errors.New("invalid CIDv1")
 	}
-	resp, err := c.request(ctx, http.MethodPost, "/pins/"+cid+"?replication-min=2&replication-max=2")
+	replication := strconv.Itoa(c.replication)
+	resp, err := c.request(ctx, http.MethodPost, "/pins/"+cid+"?replication-min="+replication+"&replication-max="+replication)
 	if err != nil {
 		return err
 	}

@@ -19,16 +19,18 @@ import (
 )
 
 // Config is the administrator-controlled IPFS integration configuration.
-// IPFS is enabled unless Enabled is set to false explicitly.
+// IPFS is enabled only when Enabled is set to true explicitly.
 type Config struct {
 	Enabled         bool
 	AutoPin         bool
+	IPNSRepublish   bool
 	ClusterEndpoint string
 	TenantBucket    string
 	ClusterUser     string
 	ClusterPassword string
 	KuboEndpoint    string
 	KuboToken       string
+	KuboCAFile      string
 	Replication     int
 	Chunker         string
 	RequestTimeout  time.Duration
@@ -48,6 +50,7 @@ func ConfigFromEnv() (Config, error) {
 		ClusterPassword: os.Getenv("MAXIO_IPFS_CLUSTER_PASSWORD"),
 		KuboEndpoint:    os.Getenv("MAXIO_IPFS_KUBO_ENDPOINT"),
 		KuboToken:       os.Getenv("MAXIO_IPFS_KUBO_TOKEN"),
+		KuboCAFile:      os.Getenv("MAXIO_IPFS_KUBO_CA_FILE"),
 		Replication:     2,
 		Chunker:         "size-262144",
 		RequestTimeout:  30 * time.Minute,
@@ -56,10 +59,13 @@ func ConfigFromEnv() (Config, error) {
 		GatewayRate:     10 << 20,
 	}
 	var err error
-	if c.Enabled, err = envBool("MAXIO_IPFS_ENABLED", true); err != nil {
+	if c.Enabled, err = envBool("MAXIO_IPFS_ENABLED", false); err != nil {
 		return Config{}, err
 	}
 	if c.AutoPin, err = envBool("MAXIO_IPFS_AUTO_PIN", false); err != nil {
+		return Config{}, err
+	}
+	if c.IPNSRepublish, err = envBool("MAXIO_IPFS_IPNS_REPUBLISH", false); err != nil {
 		return Config{}, err
 	}
 	if c.StatusHeaders, err = envBool("MAXIO_IPFS_STATUS_HEADERS", true); err != nil {
@@ -111,8 +117,8 @@ func (c Config) Validate() error {
 	if !c.Enabled {
 		return nil
 	}
-	if c.Replication != 2 {
-		return errors.New("IPFS currently requires replication factor 2")
+	if c.Replication < 1 {
+		return errors.New("MAXIO_IPFS_REPLICATION must be a positive integer")
 	}
 	if c.TenantBucket == "" {
 		return errors.New("MAXIO_IPFS_TENANT_BUCKET is required")
