@@ -41,3 +41,10 @@ Note: Since NetworkPolicy is enabled, only pods with label
 {{ template "maxio.fullname" . }}-client=true"
 will be able to connect to this maxio cluster.
 {{- end }}
+{{- if .Values.kubo.enabled }}
+
+Kubo is deployed as {{ include "maxio.kuboName" . }}. MaxIO uses the authenticated
+HTTPS RPC at https://{{ include "maxio.kuboName" . }}.{{ .Release.Namespace }}.svc:8443.
+The MaxIO IPFS extension remains disabled unless MAXIO_IPFS_ENABLED=true is set
+and IPFS Cluster is configured separately.
+{{- end }}

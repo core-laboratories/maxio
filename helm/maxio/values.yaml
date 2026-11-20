@@ -515,12 +515,39 @@ postJob:
 
 ## Use this field to add environment variables relevant to MaxIO server. These fields will be passed on to MaxIO container(s)
 ## when Chart is deployed
-## Native IPFS integration is enabled by default and requires configuration. See docs/ipfs/configuration.md.
+## Native IPFS integration is disabled by default. Set MAXIO_IPFS_ENABLED=true and configure it to enable. See docs/ipfs/configuration.md.
 ## Keep MAXIO_IPFS_CLUSTER_PASSWORD and RPC credentials in Kubernetes Secrets.
 environment:
   ## Please refer for comprehensive list https://github.com/core-laboratories/maxio/tree/master/docs/reference/maxio-server/maxio-server.html
   ## MINIO_SUBNET_LICENSE: "License key obtained from https://subnet.min.io"
   ## MINIO_BROWSER: "off"
+
+## Optional single Kubo node. IPFS Cluster remains a separate deployment.
+## The RPC proxy requires a Secret with tls.crt, tls.key, and ca.crt, plus a
+## separate Secret with a bearer token. See the chart README before enabling.
+kubo:
+  enabled: false
+  image:
+    repository: ipfs/kubo
+    tag: v0.43.1
+    pullPolicy: IfNotPresent
+  proxyImage:
+    repository: caddy
+    tag: "2"
+    pullPolicy: IfNotPresent
+  tls:
+    existingSecret: ""
+  auth:
+    existingSecret: ""
+    tokenKey: token
+  persistence:
+    existingClaim: ""
+    storageClass: ""
+    size: 100Gi
+  swarmService:
+    type: ClusterIP
+  resources: {}
+  proxyResources: {}
 
 ## The name of a secret in the same kubernetes namespace which contain secret values
 ## This can be useful for LDAP password, etc

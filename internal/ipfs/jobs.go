@@ -45,6 +45,8 @@ func (o ObjectRef) Valid() bool {
 
 type JobStatus string
 
+const ipnsRepublishPeriod = 24 * time.Hour
+
 const (
 	Pending  JobStatus = "pending"
 	Pinning  JobStatus = "pinning"
@@ -55,20 +57,26 @@ const (
 )
 
 type Job struct {
-	Revision    uint64    `json:"revision"`
-	Object      ObjectRef `json:"object"`
-	DesiredPin  bool      `json:"desiredPin"`
-	Access      Access    `json:"access"`
-	BasePolicy  Policy    `json:"basePolicy"`
-	CID         string    `json:"cid,omitempty"`
-	PreviousCID string    `json:"previousCID,omitempty"`
-	Status      JobStatus `json:"status"`
-	Replicas    int       `json:"replicas"`
-	Importer    string    `json:"importer,omitempty"`
-	Attempts    int       `json:"attempts"`
-	NextAttempt time.Time `json:"nextAttempt,omitempty"`
-	Updated     time.Time `json:"updated"`
-	Error       string    `json:"error,omitempty"`
+	Revision      uint64    `json:"revision"`
+	Object        ObjectRef `json:"object"`
+	DesiredPin    bool      `json:"desiredPin"`
+	Access        Access    `json:"access"`
+	BasePolicy    Policy    `json:"basePolicy"`
+	CID           string    `json:"cid,omitempty"`
+	PreviousCID   string    `json:"previousCID,omitempty"`
+	IPNSName      string    `json:"ipnsName,omitempty"`
+	IPNSCID       string    `json:"ipnsCid,omitempty"`
+	IPNSUpdated   time.Time `json:"ipnsUpdated,omitempty"`
+	IPNSExpiry    time.Time `json:"ipnsExpiry,omitempty"`
+	IPNSRepublish bool      `json:"ipnsRepublish,omitempty"`
+	SignedIPNS    bool      `json:"signedIpns,omitempty"`
+	Status        JobStatus `json:"status"`
+	Replicas      int       `json:"replicas"`
+	Importer      string    `json:"importer,omitempty"`
+	Attempts      int       `json:"attempts"`
+	NextAttempt   time.Time `json:"nextAttempt,omitempty"`
+	Updated       time.Time `json:"updated"`
+	Error         string    `json:"error,omitempty"`
 }
 
 type JobStore interface {
@@ -88,11 +96,16 @@ type Manager struct {
 	Source   ObjectSource
 	Importer Importer
 	Pins     PinManager
+	Names    SignedRecordPublisher
 	Now      func() time.Time
 }
 
-func NewManager(c Config, store JobStore, source ObjectSource) *Manager {
-	return &Manager{Config: c, Store: store, Source: source, Importer: NewKuboClient(c), Pins: NewClusterClient(c), Now: time.Now}
+func NewManager(c Config, store JobStore, source ObjectSource) (*Manager, error) {
+	kubo, err := NewKuboClient(c)
+	if err != nil {
+		return nil, err
+	}
+	return &Manager{Config: c, Store: store, Source: source, Importer: kubo, Pins: NewClusterClient(c), Names: kubo, Now: time.Now}, nil
 }
 
 // RecordCreated persists the intent before any network import is started.
@@ -163,6 +176,61 @@ func (m *Manager) RecordPolicy(ctx context.Context, ref ObjectRef, base, tags Po
 	return errors.New("concurrent IPFS policy update")
 }
 
+// RecordSignedIPNS queues a client-signed record stored as an S3 object.
+func (m *Manager) RecordSignedIPNS(ctx context.Context, ref ObjectRef, optOut bool) error {
+	if !m.Config.Enabled || SignedRecordName(ref) == "" {
+		return errors.New("invalid signed IPNS object")
+	}
+	republish := m.Config.IPNSRepublish && !optOut
+	for attempt := 0; attempt < 5; attempt++ {
+		job, found, err := m.Store.Load(ctx, ref.ID())
+		if err != nil {
+			return err
+		}
+		if found && job.Object.Owner != ref.Owner {
+			return errors.New("IPNS record owner changed")
+		}
+		if found && job.SignedIPNS && job.Object.ETag == ref.ETag && job.Object.Modified.Equal(ref.Modified) && job.Status != Failed && job.Status != Dead {
+			if job.IPNSRepublish == republish {
+				return nil
+			}
+			expected := job.Revision
+			job.IPNSRepublish = republish
+			job.Updated = m.Now()
+			changed, err := m.Store.CompareAndSwap(ctx, expected, job)
+			if err != nil {
+				return err
+			}
+			if changed {
+				return nil
+			}
+			continue
+		}
+		expected := job.Revision
+		job.Object = ref
+		job.SignedIPNS = true
+		job.IPNSRepublish = republish
+		job.DesiredPin = true
+		job.IPNSName = ""
+		job.IPNSCID = ""
+		job.IPNSExpiry = time.Time{}
+		job.CID = ""
+		job.Replicas = 0
+		job.Status = Pending
+		job.Attempts = 0
+		job.NextAttempt = time.Time{}
+		job.Updated = m.Now()
+		changed, err := m.Store.CompareAndSwap(ctx, expected, job)
+		if err != nil {
+			return err
+		}
+		if changed {
+			return nil
+		}
+	}
+	return errors.New("concurrent IPNS record update")
+}
+
 // RecordRemoved must only be called for an object version actually removed by S3.
 func (m *Manager) RecordRemoved(ctx context.Context, ref ObjectRef) error {
 	if !m.Config.Enabled {
@@ -178,6 +246,10 @@ func (m *Manager) RecordRemoved(ctx context.Context, ref ObjectRef) error {
 		}
 		expected := job.Revision
 		job.DesiredPin = false
+		job.IPNSName = ""
+		job.IPNSCID = ""
+		job.IPNSUpdated = time.Time{}
+		job.IPNSExpiry = time.Time{}
 		job.Status = Pending
 		job.NextAttempt = time.Time{}
 		job.Updated = m.Now()
@@ -220,7 +292,13 @@ func (m *Manager) RunOnce(ctx context.Context) error {
 		if job.Status == Dead {
 			continue
 		}
-		if job.Status == Pinned && job.DesiredPin && job.Replicas >= m.Config.Replication && m.Now().Sub(job.Updated) < 5*time.Minute {
+		if job.SignedIPNS && newerSignedRecord(job, jobs) {
+			continue
+		}
+		if job.SignedIPNS && job.Status == Pinned && job.IPNSExpiry.After(time.Now()) && (!job.IPNSRepublish || m.Now().Sub(job.IPNSUpdated) < ipnsRepublishPeriod) {
+			continue
+		}
+		if !job.SignedIPNS && job.Status == Pinned && job.DesiredPin && job.Replicas >= m.Config.Replication && m.Now().Sub(job.Updated) < 5*time.Minute {
 			continue
 		}
 		if job.Status == Unpinned && !job.DesiredPin {
@@ -250,7 +328,22 @@ func (m *Manager) RunOnce(ctx context.Context) error {
 	return nil
 }
 
+func newerSignedRecord(job Job, jobs []Job) bool {
+	for _, other := range jobs {
+		if !other.SignedIPNS || other.Object.Bucket != job.Object.Bucket || other.Object.Key != job.Object.Key || other.Object.Owner != job.Object.Owner || other.Object.ID() == job.Object.ID() {
+			continue
+		}
+		if other.Object.Modified.After(job.Object.Modified) || (other.Object.Modified.Equal(job.Object.Modified) && other.Object.Version > job.Object.Version) {
+			return true
+		}
+	}
+	return false
+}
+
 func (m *Manager) process(ctx context.Context, job *Job, all []Job) error {
+	if job.SignedIPNS {
+		return m.processSignedIPNS(ctx, job, all)
+	}
 	if !job.DesiredPin {
 		waitForRefs := false
 		for _, cid := range []string{job.CID, job.PreviousCID} {
@@ -337,7 +430,7 @@ func (m *Manager) process(ctx context.Context, job *Job, all []Job) error {
 
 func referencedElsewhere(cid, excluded string, jobs []Job) bool {
 	for _, job := range jobs {
-		if job.Object.ID() == excluded || !job.DesiredPin {
+		if job.Object.ID() == excluded || !job.DesiredPin || job.SignedIPNS {
 			continue
 		}
 		// A pending import may produce the same CID. Keep the old pin until

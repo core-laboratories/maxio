@@ -133,7 +133,10 @@ func initIPFS(api ObjectLayer) error {
 		return nil
 	}
 	store := ipfsObjectStore{api: api}
-	manager := ipfs.NewManager(c, store, store)
+	manager, err := ipfs.NewManager(c, store, store)
+	if err != nil {
+		return err
+	}
 	globalIPFSManager = manager
 	if c.PublicGateway {
 		server := &http.Server{Addr: c.GatewayListen, Handler: ipfs.NewPublicGateway(manager), ReadHeaderTimeout: 10 * time.Second}
@@ -231,6 +234,17 @@ func ipfsReconcile(ctx context.Context, manager *ipfs.Manager, store ipfsObjectS
 		}
 		ref := ipfs.ObjectRef{Bucket: manager.Config.TenantBucket, Key: info.Name, Version: info.VersionID, Owner: owner, ETag: info.ETag, Size: info.Size, Modified: info.ModTime}
 		seen[ref.ID()] = true
+		if ipfs.SignedRecordName(ref) != "" {
+			tags, err := ipfs.ParseTags(info.UserTags)
+			if err != nil {
+				return err
+			}
+			optOut := tags.Republish != nil
+			if err := manager.RecordSignedIPNS(ctx, ref, optOut); err != nil {
+				return err
+			}
+			continue
+		}
 		job, found, err := manager.Status(ctx, ref)
 		if err != nil {
 			return err
@@ -283,6 +297,25 @@ func ipfsEvent(args eventArgs) {
 	}
 	ctx, cancel := context.WithTimeout(GlobalContext, 15*time.Second)
 	defer cancel()
+	if ipfs.SignedRecordName(ref) != "" {
+		switch args.EventName {
+		case event.ObjectCreatedPut, event.ObjectCreatedCopy, event.ObjectCreatedCompleteMultipartUpload, event.ObjectRestoreCompleted, event.ObjectCreatedPutTagging, event.ObjectCreatedDeleteTagging:
+			tags, err := ipfs.ParseTags(args.Object.UserTags)
+			if err != nil {
+				loggerIPFSError(err)
+				return
+			}
+			optOut := tags.Republish != nil
+			if err := manager.RecordSignedIPNS(ctx, ref, optOut); err != nil {
+				loggerIPFSError(err)
+			}
+		case event.ObjectRemovedDelete, event.ObjectRemovedDeleteAllVersions:
+			if err := manager.RecordRemoved(ctx, ref); err != nil {
+				loggerIPFSError(err)
+			}
+		}
+		return
+	}
 	switch args.EventName {
 	case event.ObjectCreatedPut, event.ObjectCreatedCopy, event.ObjectCreatedCompleteMultipartUpload,
 		event.ObjectCreatedPutTagging, event.ObjectCreatedDeleteTagging, event.ObjectRestoreCompleted:
@@ -329,7 +362,21 @@ func validateIPFSControls(ctx context.Context, r *http.Request, bucket, object s
 	if err != nil {
 		return ErrInvalidRequest
 	}
-	if meta.IPNS != "" || meta.IPNSAuto != nil || len(meta.CoreIDs) > 0 || tags.IPNS != "" || tags.IPNSAuto != nil {
+	if len(meta.CoreIDs) > 0 {
+		return ErrInvalidRequest
+	}
+	cred := getReqAccessCred(r, globalSite.Region())
+	principal := cred.AccessKey
+	if cred.ParentUser != "" {
+		principal = cred.ParentUser
+	}
+	if ipfs.SignedRecordName(ipfs.ObjectRef{Bucket: bucket, Key: object, Owner: principal}) != "" {
+		if meta.Pin != nil || meta.Access != nil || tags.Pin != nil || tags.Access != nil {
+			return ErrInvalidRequest
+		}
+		return ErrNone
+	}
+	if tags.Republish != nil {
 		return ErrInvalidRequest
 	}
 	if tags.Pin != nil {
@@ -449,6 +496,9 @@ func ipfsStatusHeaders(ctx context.Context, r *http.Request, w http.ResponseWrit
 	w.Header().Set("x-maxio-replicas", fmt.Sprintf("%d", job.Replicas))
 	if job.CID != "" {
 		w.Header().Set("x-maxio-cid", job.CID)
+	}
+	if job.DesiredPin && job.Status == ipfs.Pinned && job.IPNSName != "" && job.IPNSCID == job.CID {
+		w.Header().Set("x-maxio-ipns-name", job.IPNSName)
 	}
 }
 

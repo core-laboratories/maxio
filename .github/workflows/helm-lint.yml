@@ -28,5 +28,7 @@ jobs:
         run: |
           cd helm/maxio
           helm lint .
-          helm template maxio . --set mode=standalone --set environment.MAXIO_IPFS_ENABLED=false > /dev/null
-          helm template maxio . --set environment.MAXIO_IPFS_ENABLED=false > /dev/null
+          helm template maxio . --set mode=standalone > /dev/null
+          helm template maxio . > /dev/null
+          helm lint . --set kubo.enabled=true --set kubo.tls.existingSecret=kubo-tls --set kubo.auth.existingSecret=kubo-auth
+          helm template maxio . --set kubo.enabled=true --set kubo.tls.existingSecret=kubo-tls --set kubo.auth.existingSecret=kubo-auth > /dev/null

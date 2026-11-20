@@ -22,6 +22,6 @@ Go 1.27.4 or newer is required; the workflows use the latest 1.27 patch and the 
 
 The workflow uses the repository's `GITHUB_TOKEN`. Allow GitHub Actions and the named actions in repository or organization settings. The publishing jobs request `contents: write` for the GitHub Release and `packages: write` for GHCR; no personal access token is required for publishing to this repository's packages. Set the container and chart package visibility to public if anonymous installs are desired. Configure branch and tag protections in GitHub settings as appropriate for your release process.
 
-The container smoke workflow deliberately sets `MAXIO_IPFS_ENABLED=false`. Real deployments must provide the IPFS configuration described in [IPFS configuration](ipfs/configuration.md), or explicitly disable the extension. Publishing a release does not provision Kubo or IPFS Cluster.
+The container smoke workflow runs with IPFS disabled by default. Deployments that enable IPFS must provide the configuration described in [IPFS configuration](ipfs/configuration.md). Publishing a release does not provision Kubo or IPFS Cluster.
 
 The inherited in-place update checker targets the original timestamp release feed and is incompatible with these SemVer releases. MaxIO now disables that checker and its administrative in-place update operation. Download release assets from GitHub Releases until a signed MaxIO update channel is implemented.

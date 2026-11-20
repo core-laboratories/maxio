@@ -45,8 +45,8 @@ jobs:
       - run: |
           "$(go env GOPATH)/bin/govulncheck" ./...
       - run: helm lint helm/maxio
-      - run: helm template maxio helm/maxio --set mode=standalone --set environment.MAXIO_IPFS_ENABLED=false > /dev/null
-      - run: helm template maxio helm/maxio --set environment.MAXIO_IPFS_ENABLED=false > /dev/null
+      - run: helm template maxio helm/maxio --set mode=standalone > /dev/null
+      - run: helm template maxio helm/maxio > /dev/null
 
   binaries:
     needs: verify
